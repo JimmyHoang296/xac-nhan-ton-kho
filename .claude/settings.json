@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(clasp --version)",
+      "Bash(clasp login *)",
+      "Bash(clasp clone *)",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(clasp push *)"
+    ]
+  }
+}
