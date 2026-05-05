@@ -12,7 +12,6 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const overlayRef = useRef(null);
-  const locationRef = useRef({ lat: '', long: '' });
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -29,14 +28,7 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
     }, 300);
   }
 
-  async function handleOpenCamera() {
-    // Lấy GPS tại thời điểm chụp ảnh
-    try {
-      const pos = await getPosition();
-      locationRef.current = { lat: pos.coords.latitude, long: pos.coords.longitude };
-    } catch {
-      locationRef.current = { lat: '', long: '' };
-    }
+  function handleOpenCamera() {
     setShowCamera(true);
   }
 
@@ -51,7 +43,16 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
     setError('');
     setSubmitting(true);
     try {
-      const { lat, long } = locationRef.current ?? { lat: '', long: '' };
+      // Lấy GPS tại thời điểm submit (per spec)
+      let lat = '', long = '';
+      try {
+        const pos = await getPosition();
+        lat = pos.coords.latitude;
+        long = pos.coords.longitude;
+      } catch {
+        // GPS không bắt buộc — tiếp tục submit với vị trí rỗng
+      }
+
       await submitConfirmation({
         store: storeCode,
         article: stock.article,
@@ -221,6 +222,7 @@ function getPosition() {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       enableHighAccuracy: true,
       timeout: 10000,
+      maximumAge: 30000,
     });
   });
 }

@@ -33,13 +33,16 @@ export default function CameraCapture({ onCapture, onClose }) {
   }
 
   function handleVideoReady() {
-    setReady(true);
+    // Dùng videoWidth > 0 để đảm bảo frame đã render, tránh canvas trống trên iOS Safari
+    if (videoRef.current?.videoWidth > 0) {
+      setReady(true);
+    }
   }
 
   function capture() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) return;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -70,6 +73,7 @@ export default function CameraCapture({ onCapture, onClose }) {
             playsInline
             muted
             onCanPlay={handleVideoReady}
+            onPlaying={handleVideoReady}
           />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
 
