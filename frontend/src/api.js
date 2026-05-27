@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = "https://script.google.com/macros/s/AKfycbx7BNvIZgOYcHixuyTtzNje2eao3raoInNuB9kqgux5r2IeZdliuv7bHDziKf8D502c/exec";
 
 export async function fetchStocks(store) {
   const res = await fetch(`${API_URL}?action=getStocks&store=${encodeURIComponent(store)}`);
