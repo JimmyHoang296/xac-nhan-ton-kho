@@ -43,14 +43,15 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
     setError('');
     setSubmitting(true);
     try {
-      // Lấy GPS tại thời điểm submit (per spec)
-      let lat = '', long = '';
+      let lat, long;
       try {
         const pos = await getPosition();
         lat = pos.coords.latitude;
         long = pos.coords.longitude;
       } catch {
-        // GPS không bắt buộc — tiếp tục submit với vị trí rỗng
+        setError('Vui lòng bật và cho phép chia sẻ vị trí để gửi xác nhận.');
+        setSubmitting(false);
+        return;
       }
 
       await submitConfirmation({
