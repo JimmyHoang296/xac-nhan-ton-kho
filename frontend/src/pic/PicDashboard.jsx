@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { fetchPicStocks, savePicComment } from '../api';
 import styles from './PicDashboard.module.css';
 
@@ -93,6 +94,15 @@ export default function PicDashboard({ pic, onLogout }) {
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
+            {!loading && !error && stocks.length > 0 && (
+              <button className={styles.downloadBtn} onClick={() => downloadExcel(pic, stocks)} title="Tải Excel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v13M7 11l5 5 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5 20h14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>Excel</span>
+              </button>
+            )}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
         </div>
@@ -273,14 +283,18 @@ function StockRow({ stock, pic, isConfirmed, isExpanded, onToggle, onCommentSave
 
             {stock.image && (
               <div className={styles.imgSection}>
-                <img
-                  src={driveEmbedUrl(stock.image)}
-                  alt="Ảnh xác nhận"
-                  className={styles.confirmImg}
-                />
-                <a href={stock.image} target="_blank" rel="noreferrer" className={styles.imgLink}>
-                  Mở ảnh gốc
-                </a>
+                {stock.image.split(',').map((url, idx) => (
+                  <div key={idx} className={styles.imgItem}>
+                    <img
+                      src={driveEmbedUrl(url.trim())}
+                      alt={`Ảnh ${idx + 1}`}
+                      className={styles.confirmImg}
+                    />
+                    <a href={url.trim()} target="_blank" rel="noreferrer" className={styles.imgLink}>
+                      Mở ảnh {stock.image.split(',').length > 1 ? idx + 1 : 'gốc'}
+                    </a>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -298,6 +312,42 @@ function Chip({ label, value, green, red }) {
       <span className={cls}>{value ?? '—'}</span>
     </div>
   );
+}
+
+function downloadExcel(pic, stocks) {
+  const rows = stocks.map(s => ({
+    'CH': s.store,
+    'Tên CH': s.store_name,
+    'Mã SP': s.article,
+    'Tên SP': s.article_name,
+    'Tồn HT': s.stock ?? '',
+    'Ngày tồn': s.stock_day ?? '',
+    'Tồn hiện tại': s.current_stock ?? '',
+    'Tồn thực tế': s.counted_stock ?? '',
+    'Chênh lệch': (s.counted_stock !== null && s.counted_stock !== '')
+      ? Number(s.counted_stock) - Number(s.current_stock || 0)
+      : '',
+    'Ghi chú NV': s.note ?? '',
+    'Comment PIC': s.pic_comment ?? '',
+    'Khoảng cách (m)': s.location_check ?? '',
+    'Thời gian XN': s.time_stamp ?? '',
+    'Ảnh': s.image ?? '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Độ rộng cột tự động theo nội dung
+  const colWidths = Object.keys(rows[0] || {}).map(key => ({
+    wch: Math.max(key.length, ...rows.map(r => String(r[key] ?? '').length)) + 2,
+  }));
+  ws['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Tồn kho');
+
+  const today = new Date();
+  const dateStr = `${String(today.getDate()).padStart(2,'0')}${String(today.getMonth()+1).padStart(2,'0')}${today.getFullYear()}`;
+  XLSX.writeFile(wb, `PIC_${pic}_${dateStr}.xlsx`);
 }
 
 function driveEmbedUrl(url) {

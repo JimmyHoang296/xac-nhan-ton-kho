@@ -99,9 +99,13 @@ function getStocksByStore(storeId) {
   };
 }
 
-// data: { store, article, current_stock, counted_stock, note, lat, long, image (base64), imageType }
+// data: { store, article, current_stock, counted_stock, note, lat, long,
+//         images: [{base64, type}],   // tối đa 5 ảnh
+//         image, imageType            // backward-compat (single)
+// }
 function confirmStock(data) {
-  const { store, article, current_stock, counted_stock, note, lat, long, image, imageType } = data;
+  const { store, article, current_stock, counted_stock, note, lat, long,
+          image, imageType, images } = data;
 
   if (!store || !article || counted_stock === undefined || counted_stock === '') {
     return { error: 'Missing required fields: store, article, counted_stock' };
@@ -143,38 +147,48 @@ function confirmStock(data) {
       const storeLong = storeRow[sh.indexOf('long')];
       if (storeLat && storeLong) {
         const dist = haversineDistance(Number(lat), Number(long), Number(storeLat), Number(storeLong));
-        locationCheck = dist; // khoảng cách tính bằng mét
+        locationCheck = dist;
       }
     }
   }
 
-  // Upload ảnh lên Drive
-  let imageUrl = '';
-  if (image) {
+  // Chuẩn hoá danh sách ảnh: ưu tiên images[], fallback về single image
+  const imageList = Array.isArray(images) && images.length > 0
+    ? images.slice(0, 5)
+    : (image ? [{ base64: image, type: imageType || 'image/jpeg' }] : []);
+
+  // Upload tất cả ảnh lên Drive
+  const imageUrls = [];
+  if (imageList.length > 0) {
     const root       = DriveApp.getFolderById(DRIVE_FOLDER_ID);
     const dateFolder = getOrCreateFolder(root, toMmdd(stockDay));
     const picFolder  = getOrCreateFolder(dateFolder, `${pic || 'nopic'}_${store}`);
 
-    const safeName = [
+    const baseName = [
       store,
       String(articleName).replace(/\s+/g, '-'),
       systemStock,
       counted_stock
     ].join('_');
-    const mimeType = imageType || 'image/jpeg';
-    const ext = mimeType.split('/')[1] || 'jpg';
 
-    const blob = Utilities.newBlob(
-      Utilities.base64Decode(image),
-      mimeType,
-      `${safeName}.${ext}`
-    );
-    const file = picFolder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    imageUrl = file.getUrl();
+    imageList.forEach(function(img, idx) {
+      const mimeType = img.type || 'image/jpeg';
+      const ext = mimeType.split('/')[1] || 'jpg';
+      const suffix = imageList.length > 1 ? '_' + (idx + 1) : '';
+      const blob = Utilities.newBlob(
+        Utilities.base64Decode(img.base64),
+        mimeType,
+        baseName + suffix + '.' + ext
+      );
+      const file = picFolder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      imageUrls.push(file.getUrl());
+    });
   }
 
-  // Ghi vào sheet
+  // Ghi vào sheet — nhiều URL phân cách bằng dấu phẩy
+  const imageUrlValue = imageUrls.join(',');
+
   [
     ['current_stock',  current_stock ?? ''],
     ['counted_stock',  counted_stock],
@@ -184,13 +198,13 @@ function confirmStock(data) {
     ['stock_check',    stockCheck],
     ['time_stamp',     new Date()],
     ['location_check', locationCheck],
-    ['image',          imageUrl]
+    ['image',          imageUrlValue]
   ].forEach(([name, value]) => {
     const c = col(name);
     if (c !== -1) sheet.getRange(rowNum, c + 1).setValue(value);
   });
 
-  return { success: true, imageUrl, location_check: locationCheck };
+  return { success: true, imageUrls, location_check: locationCheck };
 }
 
 // ── PIC functions ──────────────────────────────────────────
