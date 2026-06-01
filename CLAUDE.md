@@ -25,11 +25,11 @@ stock-confirmation/
 
 ## Backend — Google Apps Script
 
-**Script ID:** `1955FquvEY5qk1R9H2NiqcFuxlCjr5dCFNwun7Xnd3TGhpBbtJVcqEv_t`
+**Script ID:** `1bXUbjmKEMnXGBEhp5Dz5SE256F9jGrTE2Yqd9Gyiiav95NE7qv74saNR`
 
-**Spreadsheet:** `https://docs.google.com/spreadsheets/d/1VSKEIWrD0jJU4A9cSlBfaslN6Jw46EQWnQWqc-vP1GU`
+**Spreadsheet:** `https://docs.google.com/spreadsheets/d/1mQX6TXjrxjSP08cQ-sGES__prD0_NM23GcyexcFOc6I`
 
-**Drive folder ảnh:** `https://drive.google.com/drive/folders/1Ul1blN2-td81r5s9tWpow53rmETpXLbD`
+**Drive folder ảnh:** `https://drive.google.com/drive/folders/11tUqvg52iEOgdSldCiljSOnCE146Hnae`
 
 ### Sheet `stocks` — cột dữ liệu
 

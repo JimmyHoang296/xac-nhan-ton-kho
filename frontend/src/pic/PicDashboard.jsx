@@ -29,10 +29,10 @@ export default function PicDashboard({ pic, onLogout }) {
     setExpandedKey(prev => prev === key ? null : key);
   }
 
-  function handleCommentSaved(store, article, comment) {
+  function handleCommentSaved(store, article, comment, status) {
     setStocks(prev => prev.map(s =>
       s.store === store && String(s.article) === String(article)
-        ? { ...s, pic_comment: comment }
+        ? { ...s, pic_comment: comment, pic_status: status }
         : s
     ));
   }
@@ -157,9 +157,17 @@ export default function PicDashboard({ pic, onLogout }) {
   );
 }
 
+const PIC_STATUSES = [
+  { value: '',             label: '— Chọn trạng thái —' },
+  { value: 'ok',          label: 'OK' },
+  { value: 'xlvp',        label: 'XLVP' },
+  { value: 'xac_minh_them', label: 'Xác minh thêm' },
+];
+
 function StockRow({ stock, pic, isConfirmed, isExpanded, onToggle, onCommentSaved }) {
   const [comment, setComment] = useState(stock.pic_comment || '');
-  const [saving, setSaving]   = useState(false);
+  const [status,  setStatus]  = useState(stock.pic_status  || '');
+  const [saving,  setSaving]  = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
   const diff = isConfirmed
@@ -170,8 +178,8 @@ function StockRow({ stock, pic, isConfirmed, isExpanded, onToggle, onCommentSave
     setSaving(true);
     setSaveMsg('');
     try {
-      await savePicComment(pic, stock.store, stock.article, comment);
-      onCommentSaved(stock.store, stock.article, comment);
+      await savePicComment(pic, stock.store, stock.article, comment, status);
+      onCommentSaved(stock.store, stock.article, comment, status);
       setSaveMsg('Đã lưu');
       setTimeout(() => setSaveMsg(''), 2000);
     } catch {
@@ -264,6 +272,17 @@ function StockRow({ stock, pic, isConfirmed, isExpanded, onToggle, onCommentSave
               )}
 
               <div className={styles.commentSection}>
+                <label className={styles.commentLabel}>Trạng thái PIC</label>
+                <select
+                  className={styles.statusSelect}
+                  value={status}
+                  onChange={e => setStatus(e.target.value)}
+                >
+                  {PIC_STATUSES.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+
                 <label className={styles.commentLabel}>Comment PIC</label>
                 <textarea
                   className={styles.commentInput}
@@ -275,7 +294,7 @@ function StockRow({ stock, pic, isConfirmed, isExpanded, onToggle, onCommentSave
                 <div className={styles.commentFooter}>
                   {saveMsg && <span className={styles.saveMsg}>{saveMsg}</span>}
                   <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
-                    {saving ? 'Đang lưu...' : 'Lưu comment'}
+                    {saving ? 'Đang lưu...' : 'Lưu'}
                   </button>
                 </div>
               </div>

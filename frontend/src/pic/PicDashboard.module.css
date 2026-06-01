@@ -408,6 +408,26 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.statusSelect {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.875rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1.5px solid #dadce0;
+  border-radius: 8px;
+  outline: none;
+  color: #1a1a2e;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  margin-bottom: 0.75rem;
+}
+.statusSelect:focus {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
+}
+
 .commentInput {
   width: 100%;
   box-sizing: border-box;

@@ -257,7 +257,8 @@ function getPicStocks(picName) {
       image:         get(r, 'image'),
       time_stamp:    get(r, 'time_stamp'),
       location_check: get(r, 'location_check'),
-      pic_comment:   get(r, 'pic_comment')
+      pic_comment:   get(r, 'pic_comment'),
+      pic_status:    get(r, 'pic_status')
     }));
 
   // Gắn thêm store_name từ sheet stores
@@ -273,9 +274,9 @@ function getPicStocks(picName) {
   return { pic: picName, stocks };
 }
 
-// data: { pic, store, article, comment }
+// data: { pic, store, article, comment, pic_status }
 function savePicComment(data) {
-  const { pic, store, article, comment } = data;
+  const { pic, store, article, comment, pic_status } = data;
   if (!pic || !store || !article) return { error: 'Missing required fields' };
 
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('stocks');
@@ -294,6 +295,12 @@ function savePicComment(data) {
   if (picCommentCol === -1) return { error: 'Column pic_comment not found in sheet' };
 
   sheet.getRange(rowIdx + 1, picCommentCol + 1).setValue(comment || '');
+
+  const picStatusCol = col('pic_status');
+  if (picStatusCol !== -1) {
+    sheet.getRange(rowIdx + 1, picStatusCol + 1).setValue(pic_status || '');
+  }
+
   return { success: true };
 }
 
