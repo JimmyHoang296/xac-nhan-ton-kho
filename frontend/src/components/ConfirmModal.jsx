@@ -7,7 +7,7 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
   const [currentStock, setCurrentStock] = useState('');
   const [countedStock, setCountedStock] = useState('');
   const [note, setNote] = useState('');
-  const [photo, setPhoto] = useState(null);
+  const [photos, setPhotos] = useState([]);
   const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -33,13 +33,17 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
   }
 
   function handleCapture(capturedPhoto) {
-    setPhoto(capturedPhoto);
+    setPhotos(prev => [...prev, capturedPhoto]);
     setShowCamera(false);
+  }
+
+  function removePhoto(index) {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
     if (countedStock === '') { setError('Vui lòng nhập tồn kiểm kho.'); return; }
-    if (!photo) { setError('Vui lòng chụp ảnh xác nhận.'); return; }
+    if (photos.length === 0) { setError('Vui lòng chụp ít nhất 1 ảnh xác nhận.'); return; }
     setError('');
     setSubmitting(true);
     try {
@@ -62,8 +66,9 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
         note,
         lat,
         long,
-        image: photo.base64,
-        imageType: photo.type,
+        image: photos[0].base64,
+        imageType: photos[0].type,
+        images: photos.map(p => ({ base64: p.base64, type: p.type })),
       });
       onSuccess(stock.article, Number(countedStock), note);
     } catch (err) {
@@ -73,7 +78,7 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
     }
   }
 
-  const canSubmit = countedStock !== '' && photo && !submitting;
+  const canSubmit = countedStock !== '' && photos.length > 0 && !submitting;
 
   return (
     <>
@@ -160,21 +165,31 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
             <div className={styles.field}>
               <label className={styles.label}>
                 Ảnh xác nhận (vị trí chứa phần lớn sản phẩm) <span className={styles.required}>*</span>
+                <span className={styles.photoCounter}> {photos.length}/5</span>
               </label>
 
-              {photo ? (
-                <div className={styles.photoWrapper}>
-                  <img src={photo.preview} alt="Ảnh xác nhận" className={styles.photoPreview} />
-                  <button className={styles.retakeBtn} onClick={handleOpenCamera}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
-                        stroke="white" strokeWidth="2" />
-                      <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="2" />
-                    </svg>
-                    Chụp lại
-                  </button>
+              {photos.length > 0 && (
+                <div className={styles.photoGrid}>
+                  {photos.map((p, i) => (
+                    <div key={i} className={styles.photoThumb}>
+                      <img src={p.preview} alt={`Ảnh ${i + 1}`} className={styles.thumbImg} />
+                      <button className={styles.removeBtn} onClick={() => removePhoto(i)} aria-label="Xoá ảnh">×</button>
+                    </div>
+                  ))}
+                  {photos.length < 5 && (
+                    <button className={styles.addPhotoBtn} onClick={handleOpenCamera} aria-label="Thêm ảnh">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                          stroke="#1a73e8" strokeWidth="2" />
+                        <circle cx="12" cy="13" r="4" stroke="#1a73e8" strokeWidth="2" />
+                      </svg>
+                      <span className={styles.addPhotoText}>Thêm</span>
+                    </button>
+                  )}
                 </div>
-              ) : (
+              )}
+
+              {photos.length === 0 && (
                 <button className={styles.cameraBtn} onClick={handleOpenCamera}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
