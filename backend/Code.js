@@ -1,5 +1,5 @@
-const SPREADSHEET_ID = '1VSKEIWrD0jJU4A9cSlBfaslN6Jw46EQWnQWqc-vP1GU';
-const DRIVE_FOLDER_ID = '1Ul1blN2-td81r5s9tWpow53rmETpXLbD';
+const SPREADSHEET_ID = '1mQX6TXjrxjSP08cQ-sGES__prD0_NM23GcyexcFOc6I';
+const DRIVE_FOLDER_ID = '11tUqvg52iEOgdSldCiljSOnCE146Hnae';
 
 function doGet(e) {
   try {
