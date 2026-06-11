@@ -254,6 +254,8 @@ function getPicStocks(picName) {
       current_stock: get(r, 'current_stock'),
       counted_stock: get(r, 'counted_stock'),
       note:          get(r, 'note'),
+      lat:           get(r, 'lat'),
+      long:          get(r, 'long'),
       image:         get(r, 'image'),
       time_stamp:    get(r, 'time_stamp'),
       location_check: get(r, 'location_check'),
@@ -261,15 +263,24 @@ function getPicStocks(picName) {
       pic_status:    get(r, 'pic_status')
     }));
 
-  // Gắn thêm store_name từ sheet stores
+  // Gắn thêm store_name, store_lat, store_long từ sheet stores
   const storesData = ss.getSheetByName('stores').getDataRange().getValues();
   const sh = storesData[0];
   const storeMap = {};
   storesData.slice(1).forEach(r => {
-    storeMap[String(r[sh.indexOf('store')])] = r[sh.indexOf('store_name')];
+    storeMap[String(r[sh.indexOf('store')])] = {
+      store_name: r[sh.indexOf('store_name')],
+      store_lat:  r[sh.indexOf('lat')],
+      store_long: r[sh.indexOf('long')],
+    };
   });
 
-  stocks.forEach(s => { s.store_name = storeMap[String(s.store)] || ''; });
+  stocks.forEach(s => {
+    const info = storeMap[String(s.store)] || {};
+    s.store_name = info.store_name || '';
+    s.store_lat  = info.store_lat  || '';
+    s.store_long = info.store_long || '';
+  });
 
   return { pic: picName, stocks };
 }
