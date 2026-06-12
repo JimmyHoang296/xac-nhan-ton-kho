@@ -242,6 +242,58 @@
 .filterToggle:hover { background: #f1f3f4; border-color: #bdc1c6; }
 .filterToggleActive { background: #fef7e0; color: #a05000; border-color: #fbbc04; }
 
+/* ── Pic status filter chips ── */
+.picFilterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.pfChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border: 1.5px solid #dadce0;
+  border-radius: 20px;
+  background: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5f6368;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.pfChip:hover { background: #f1f3f4; border-color: #bdc1c6; }
+
+.pfCount {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #e8eaed;
+  color: #3c4043;
+  border-radius: 10px;
+  padding: 0 0.35rem;
+  line-height: 1.5;
+}
+
+/* Màu từng trạng thái */
+.pfNone  { border-color: #dadce0; }
+.pfOk   { border-color: #34a853; color: #137333; }
+.pfOk   .pfCount { background: #e6f4ea; color: #137333; }
+.pfXlvp { border-color: #ea4335; color: #c5221f; }
+.pfXlvp .pfCount { background: #fce8e6; color: #c5221f; }
+.pfXmt  { border-color: #fbbc04; color: #a05000; }
+.pfXmt  .pfCount { background: #fef7e0; color: #a05000; }
+
+/* Active state */
+.pfChipActive                    { background: #f1f3f4; border-color: #5f6368; }
+.pfOk.pfChipActive               { background: #e6f4ea; border-color: #34a853; }
+.pfXlvp.pfChipActive             { background: #fce8e6; border-color: #ea4335; }
+.pfXmt.pfChipActive              { background: #fef7e0; border-color: #fbbc04; }
+.pfNone.pfChipActive             { background: #f1f3f4; border-color: #5f6368; }
+
 /* ── Store list (single column in list panel) ── */
 .storeList {
   display: flex;

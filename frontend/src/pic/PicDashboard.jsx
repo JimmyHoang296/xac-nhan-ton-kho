@@ -9,6 +9,7 @@ export default function PicDashboard({ pic, onLogout }) {
   const [error, setError] = useState('');
   const [selectedKey, setSelectedKey] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'confirmed' | 'pending'
+  const [picStatusFilter, setPicStatusFilter] = useState('all'); // 'all' | 'ok' | 'xlvp' | 'xac_minh_them' | 'none'
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyPendingStores, setShowOnlyPendingStores] = useState(false);
 
@@ -39,9 +40,22 @@ export default function PicDashboard({ pic, onLogout }) {
   const pending   = stocks.filter(s => s.counted_stock === null || s.counted_stock === '');
 
   const isConfirmedFn = s => s.counted_stock !== null && s.counted_stock !== '';
-  const filteredStocks = filter === 'confirmed' ? stocks.filter(isConfirmedFn)
-                       : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
-                       : stocks;
+  const byXnFilter = filter === 'confirmed' ? stocks.filter(isConfirmedFn)
+                   : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
+                   : stocks;
+
+  const filteredStocks = picStatusFilter === 'all'  ? byXnFilter
+    : picStatusFilter === 'none' ? byXnFilter.filter(s => !s.pic_status || s.pic_status === '')
+    : byXnFilter.filter(s => s.pic_status === picStatusFilter);
+
+  // Đếm số item theo từng pic_status (trên toàn bộ stocks, không phụ thuộc filter XN)
+  const picCounts = {
+    all:           stocks.length,
+    none:          stocks.filter(s => !s.pic_status || s.pic_status === '').length,
+    ok:            stocks.filter(s => s.pic_status === 'ok').length,
+    xlvp:          stocks.filter(s => s.pic_status === 'xlvp').length,
+    xac_minh_them: stocks.filter(s => s.pic_status === 'xac_minh_them').length,
+  };
 
   const byStore = filteredStocks.reduce((acc, s) => {
     const key = s.store;
@@ -158,6 +172,26 @@ export default function PicDashboard({ pic, onLogout }) {
                 >
                   PIC chưa XN
                 </button>
+              </div>
+
+              {/* Filter chips theo pic_status */}
+              <div className={styles.picFilterBar}>
+                {[
+                  { key: 'all',           label: 'Tất cả',        cls: '' },
+                  { key: 'none',          label: 'Chưa set',      cls: styles.pfNone },
+                  { key: 'ok',            label: 'OK',            cls: styles.pfOk },
+                  { key: 'xlvp',          label: 'XLVP',          cls: styles.pfXlvp },
+                  { key: 'xac_minh_them', label: 'Xác minh thêm', cls: styles.pfXmt },
+                ].map(({ key, label, cls }) => (
+                  <button
+                    key={key}
+                    className={`${styles.pfChip} ${cls} ${picStatusFilter === key ? styles.pfChipActive : ''}`}
+                    onClick={() => setPicStatusFilter(key)}
+                  >
+                    {label}
+                    {picCounts[key] > 0 && <span className={styles.pfCount}>{picCounts[key]}</span>}
+                  </button>
+                ))}
               </div>
 
               {displayedGroups.length === 0 && (
