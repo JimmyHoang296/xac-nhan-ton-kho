@@ -42,6 +42,7 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
   }
 
   async function handleSubmit() {
+    if (currentStock === '') { setError('Vui lòng nhập tồn hiện tại.'); return; }
     if (countedStock === '') { setError('Vui lòng nhập tồn kiểm kho.'); return; }
     if (photos.length === 0) { setError('Vui lòng chụp ít nhất 1 ảnh xác nhận.'); return; }
     setError('');
@@ -78,7 +79,7 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
     }
   }
 
-  const canSubmit = countedStock !== '' && photos.length > 0 && !submitting;
+  const canSubmit = currentStock !== '' && countedStock !== '' && photos.length > 0 && !submitting;
 
   return (
     <>
@@ -120,7 +121,7 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
 
             <div className={styles.fieldRow}>
               <div className={styles.field}>
-                <label className={styles.label}>Tồn hiện tại</label>
+                <label className={styles.label}>Tồn hiện tại <span className={styles.required}>*</span></label>
                 <input
                   className={styles.input}
                   type="number"
