@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbytVXOo6AxYlwk7rDefK_hSx4YyK2WlC1Ox-dl_1xUY8FK8AZ47hX01gZ6hJ3KX_7zt/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwGjMeY5mDVTRWFb2aP3pIXvXwaD0Eg9Nom-vD3nN_x2rsKIlWZa7cI93vta5fJD0wn/exec";
 
 export async function fetchStocks(store) {
   const res = await fetch(`${API_URL}?action=getStocks&store=${encodeURIComponent(store)}`);
