@@ -124,13 +124,22 @@ export default function PicDashboard({ pic, onLogout }) {
               </svg>
             </button>
             {!loading && !error && stocks.length > 0 && (
-              <button className={styles.downloadBtn} onClick={() => downloadExcel(pic, stocks)} title="Tải Excel">
+              <>
+              <button className={styles.downloadBtnQlkv} onClick={() => downloadExcelByQlkv(pic, stocks)} title="Tải Excel theo QLKV">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v13M7 11l5 5 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5 20h14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>QLKV</span>
+              </button>
+              <button className={styles.downloadBtn} onClick={() => downloadExcel(pic, stocks)} title="Tải Excel chi tiết">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M12 3v13M7 11l5 5 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M5 20h14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
                 <span>Excel</span>
               </button>
+              </>
             )}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
@@ -532,6 +541,68 @@ const PIC_STATUSES = [
   { value: 'xlvp',           label: 'XLVP' },
   { value: 'xac_minh_them',  label: 'Xác minh thêm' },
 ];
+
+function downloadExcelByQlkv(pic, stocks) {
+  // Group: qlkv → store → items
+  const qlkvMap = {};
+  stocks.forEach(s => {
+    const qlkv = s.qlkv || 'Chưa phân công';
+    const key  = String(s.store);
+    if (!qlkvMap[qlkv]) qlkvMap[qlkv] = {};
+    if (!qlkvMap[qlkv][key]) qlkvMap[qlkv][key] = { store_name: s.store_name, items: [] };
+    qlkvMap[qlkv][key].items.push(s);
+  });
+
+  const rows = [];
+  const isConf = s => s.counted_stock !== null && s.counted_stock !== '';
+
+  Object.entries(qlkvMap).sort(([a], [b]) => a.localeCompare(b, 'vi')).forEach(([qlkv, stores]) => {
+    const allItems = Object.values(stores).flatMap(s => s.items);
+    const confAll  = allItems.filter(isConf);
+
+    // QLKV tổng hợp row
+    rows.push({
+      'Loại':           'QLKV',
+      'QLKV':           qlkv,
+      'Mã CH':          '',
+      'Tên CH':         '',
+      'Số mã':          allItems.length,
+      'Tổng tồn HT':    allItems.reduce((s, i) => s + Number(i.stock  || 0), 0),
+      'Số mã đã XN':    confAll.length,
+      'Tổng tồn TT':    confAll.reduce((s, i) => s + Number(i.counted_stock || 0), 0),
+    });
+
+    // CH detail rows
+    Object.entries(stores).sort(([a], [b]) => String(a).localeCompare(String(b))).forEach(([storeCode, { store_name, items }]) => {
+      const conf = items.filter(isConf);
+      rows.push({
+        'Loại':        'CH',
+        'QLKV':        qlkv,
+        'Mã CH':       storeCode,
+        'Tên CH':      store_name,
+        'Số mã':       items.length,
+        'Tổng tồn HT': items.reduce((s, i) => s + Number(i.stock  || 0), 0),
+        'Số mã đã XN': conf.length,
+        'Tổng tồn TT': conf.reduce((s, i) => s + Number(i.counted_stock || 0), 0),
+      });
+    });
+
+    rows.push({ 'Loại': '', 'QLKV': '', 'Mã CH': '', 'Tên CH': '', 'Số mã': '', 'Tổng tồn HT': '', 'Số mã đã XN': '', 'Tổng tồn TT': '' });
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const colWidths = Object.keys(rows[0] || {}).map(key => ({
+    wch: Math.max(key.length, ...rows.map(r => String(r[key] ?? '').length)) + 2,
+  }));
+  ws['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Theo QLKV');
+
+  const today = new Date();
+  const dateStr = `${String(today.getDate()).padStart(2,'0')}${String(today.getMonth()+1).padStart(2,'0')}${today.getFullYear()}`;
+  XLSX.writeFile(wb, `PIC_${pic}_QLKV_${dateStr}.xlsx`);
+}
 
 const PIC_STATUS_LABELS = {
   ok:            'OK',

@@ -73,6 +73,25 @@
 .refreshBtn:hover  { background: #c5d8fb; }
 .refreshBtn:active { background: #a8c7fa; }
 
+.downloadBtnQlkv {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  background: #7b2ff7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.downloadBtnQlkv:hover  { background: #6a27d6; }
+.downloadBtnQlkv:active { background: #5920b0; }
+
 .downloadBtn {
   display: flex;
   align-items: center;
