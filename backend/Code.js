@@ -272,6 +272,10 @@ function getPicStocks(picName) {
       store_name: r[sh.indexOf('store_name')],
       store_lat:  r[sh.indexOf('lat')],
       store_long: r[sh.indexOf('long')],
+      cht:        r[sh.indexOf('CHT')],
+      sdt_cht:    r[sh.indexOf('SDT CHT')],
+      qlkv:       r[sh.indexOf('QLKV')],
+      sdt_qlkv:   r[sh.indexOf('SDT QLKV')],
     };
   });
 
@@ -280,6 +284,10 @@ function getPicStocks(picName) {
     s.store_name = info.store_name || '';
     s.store_lat  = info.store_lat  || '';
     s.store_long = info.store_long || '';
+    s.cht        = info.cht        || '';
+    s.sdt_cht    = info.sdt_cht    || '';
+    s.qlkv       = info.qlkv       || '';
+    s.sdt_qlkv   = info.sdt_qlkv   || '';
   });
 
   return { pic: picName, stocks };

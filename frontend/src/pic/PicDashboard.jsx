@@ -381,6 +381,33 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
           <span className={styles.storeCode}>{stock.store}</span>
           <span className={styles.detailStoreName}>{stock.store_name}</span>
         </div>
+
+        {(stock.cht || stock.qlkv) && (
+          <div className={styles.contactStrip}>
+            {stock.cht && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>CHT</span>
+                <span className={styles.contactName}>{stock.cht}</span>
+                {stock.sdt_cht && (
+                  <a href={`tel:${String(stock.sdt_cht).replace(/\s/g, '')}`} className={styles.contactPhone}>
+                    📞 {stock.sdt_cht}
+                  </a>
+                )}
+              </span>
+            )}
+            {stock.qlkv && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>QLKV</span>
+                <span className={styles.contactName}>{stock.qlkv}</span>
+                {stock.sdt_qlkv && (
+                  <a href={`tel:${String(stock.sdt_qlkv).replace(/\s/g, '')}`} className={styles.contactPhone}>
+                    📞 {stock.sdt_qlkv}
+                  </a>
+                )}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Chips */}
