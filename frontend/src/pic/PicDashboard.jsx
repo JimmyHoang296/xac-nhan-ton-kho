@@ -562,14 +562,12 @@ function downloadExcelByQlkv(pic, stocks) {
 
     // QLKV tổng hợp row
     rows.push({
-      'Loại':           'QLKV',
-      'QLKV':           qlkv,
-      'Mã CH':          '',
-      'Tên CH':         '',
-      'Số mã':          allItems.length,
-      'Tổng tồn HT':    allItems.reduce((s, i) => s + Number(i.stock  || 0), 0),
-      'Số mã đã XN':    confAll.length,
-      'Tổng tồn TT':    confAll.reduce((s, i) => s + Number(i.counted_stock || 0), 0),
+      'Loại':        'QLKV',
+      'QLKV':        qlkv,
+      'Mã CH':       '',
+      'Tên CH':      '',
+      'Số mã':       allItems.length,
+      'Số mã đã XN': confAll.length,
     });
 
     // CH detail rows
@@ -581,13 +579,11 @@ function downloadExcelByQlkv(pic, stocks) {
         'Mã CH':       storeCode,
         'Tên CH':      store_name,
         'Số mã':       items.length,
-        'Tổng tồn HT': items.reduce((s, i) => s + Number(i.stock  || 0), 0),
         'Số mã đã XN': conf.length,
-        'Tổng tồn TT': conf.reduce((s, i) => s + Number(i.counted_stock || 0), 0),
       });
     });
 
-    rows.push({ 'Loại': '', 'QLKV': '', 'Mã CH': '', 'Tên CH': '', 'Số mã': '', 'Tổng tồn HT': '', 'Số mã đã XN': '', 'Tổng tồn TT': '' });
+    rows.push({ 'Loại': '', 'QLKV': '', 'Mã CH': '', 'Tên CH': '', 'Số mã': '', 'Số mã đã XN': '' });
   });
 
   const ws = XLSX.utils.json_to_sheet(rows);
