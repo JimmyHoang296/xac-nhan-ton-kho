@@ -398,8 +398,8 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
                 <span className={styles.contactRole}>CHT</span>
                 <span className={styles.contactName}>{stock.cht}</span>
                 {stock.sdt_cht && (
-                  <a href={`tel:${String(stock.sdt_cht).replace(/\s/g, '')}`} className={styles.contactPhone}>
-                    📞 {stock.sdt_cht}
+                  <a href={viberUrl(stock.sdt_cht)} className={styles.contactPhone}>
+                    💬 {normalizePhone(stock.sdt_cht)}
                   </a>
                 )}
               </span>
@@ -409,8 +409,8 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
                 <span className={styles.contactRole}>QLKV</span>
                 <span className={styles.contactName}>{stock.qlkv}</span>
                 {stock.sdt_qlkv && (
-                  <a href={`tel:${String(stock.sdt_qlkv).replace(/\s/g, '')}`} className={styles.contactPhone}>
-                    📞 {stock.sdt_qlkv}
+                  <a href={viberUrl(stock.sdt_qlkv)} className={styles.contactPhone}>
+                    💬 {normalizePhone(stock.sdt_qlkv)}
                   </a>
                 )}
               </span>
@@ -666,4 +666,17 @@ function formatDateTime(val) {
   const d = new Date(val);
   if (isNaN(d)) return String(val);
   return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function normalizePhone(raw) {
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.startsWith('0') ? digits : '0' + digits;
+}
+
+function viberUrl(raw) {
+  const phone = normalizePhone(raw);
+  if (!phone) return '#';
+  const intl = '+84' + phone.slice(1);
+  return `viber://chat?number=${encodeURIComponent(intl)}`;
 }
