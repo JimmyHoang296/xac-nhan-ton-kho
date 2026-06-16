@@ -610,6 +610,7 @@ function downloadExcel(pic, stocks) {
   const rows = stocks.map(s => ({
     'CH':              s.store,
     'Tên CH':          s.store_name,
+    'QLKV':            s.qlkv ?? '',
     'Mã SP':           s.article,
     'Tên SP':          s.article_name,
     'Tồn HT':          s.stock ?? '',
