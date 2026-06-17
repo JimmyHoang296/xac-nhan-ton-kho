@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { fetchPicStocks, savePicComment } from '../api';
 import styles from './PicDashboard.module.css';
 
-export default function PicDashboard({ pic, onLogout }) {
+export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -140,6 +140,9 @@ export default function PicDashboard({ pic, onLogout }) {
                 <span>Excel</span>
               </button>
               </>
+            )}
+            {onSwitchProgress && (
+              <button className={styles.progressBtn} onClick={onSwitchProgress}>Tổng quan</button>
             )}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>

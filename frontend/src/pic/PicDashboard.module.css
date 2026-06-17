@@ -111,6 +111,21 @@
 .downloadBtn:hover  { background: #197235; }
 .downloadBtn:active { background: #155d2b; }
 
+.progressBtn {
+  padding: 0.45rem 0.875rem;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.progressBtn:hover { background: #1557b0; }
+
 .logoutBtn {
   padding: 0.45rem 0.875rem;
   background: transparent;

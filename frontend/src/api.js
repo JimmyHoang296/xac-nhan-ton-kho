@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbx3qUd-IoSgA7ueW_AMD1h_6rkIs8tZkteOuZchm2jVSuHXyQoe8oDULv_mla4S4MWF/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwCP_2Ox6hXaLrK541TN52T-sMgPjgvdMhU9blAeo7rCS22gZm9ifQZjbzBs1xN_cGB/exec";
 
 export async function fetchStocks(store) {
   const res = await fetch(`${API_URL}?action=getStocks&store=${encodeURIComponent(store)}`);
@@ -34,6 +34,14 @@ export async function savePicComment(pic, store, article, comment, pic_status) {
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'savePicComment', pic, store, article, comment, pic_status }),
   });
+  if (!res.ok) throw new Error('Lỗi kết nối máy chủ');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function fetchProgress(pic) {
+  const res = await fetch(`${API_URL}?action=getProgress&pic=${encodeURIComponent(pic)}`);
   if (!res.ok) throw new Error('Lỗi kết nối máy chủ');
   const data = await res.json();
   if (data.error) throw new Error(data.error);

@@ -19,6 +19,13 @@ function doGet(e) {
       return respond(getPicStocks(pic));
     }
 
+    if (action === 'getProgress') {
+      const pic = e.parameter.pic;
+      const allowed = ['dunghd', 'hienbm'];
+      if (!allowed.includes(String(pic).toLowerCase())) return respond({ error: 'Unauthorized' });
+      return respond(getProgress());
+    }
+
     return respond({ error: 'Unknown action' });
   } catch (err) {
     return respond({ error: err.message });
@@ -349,6 +356,37 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+// GET ?action=getProgress&pic=dunghd
+function getProgress() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const stocksData = ss.getSheetByName('stocks').getDataRange().getValues();
+  const h = stocksData[0];
+  const col = name => h.indexOf(name);
+  const get = (r, name) => { const c = col(name); return c !== -1 ? r[c] : null; };
+
+  const stocks = stocksData.slice(1)
+    .filter(r => get(r, 'store'))
+    .map(r => ({
+      store:         String(get(r, 'store')),
+      pic:           String(get(r, 'pic') || ''),
+      counted_stock: get(r, 'counted_stock'),
+    }));
+
+  const storesData = ss.getSheetByName('stores').getDataRange().getValues();
+  const sh = storesData[0];
+  const storeMap = {};
+  storesData.slice(1).filter(r => r[sh.indexOf('store')]).forEach(r => {
+    storeMap[String(r[sh.indexOf('store')])] = {
+      store_name: r[sh.indexOf('store_name')] || '',
+      kstt:       r[sh.indexOf('KSTT')]       || '',
+      qlkv:       r[sh.indexOf('QLKV')]       || '',
+    };
+  });
+
+  return { stocks, storeMap };
 }
 
 function respond(data) {
