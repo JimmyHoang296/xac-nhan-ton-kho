@@ -3,11 +3,10 @@ import { fetchQlkvStocks } from '../api';
 import styles from '../pic/ProgressDashboard.module.css';
 
 export default function QlkvProgressView({ username, name, onLogout, onViewDetail }) {
-  const [stocks,   setStocks]   = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
-  const [expanded, setExpanded] = useState({});
-  const [sort,     setSort]     = useState({ col: null, dir: 'asc' });
+  const [stocks,  setStocks]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState('');
+  const [sort,    setSort]    = useState({ col: null, dir: 'asc' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -24,27 +23,14 @@ export default function QlkvProgressView({ username, name, onLogout, onViewDetai
 
   useEffect(() => { load(); }, [load]);
 
-  const groups = buildPicGroups(stocks);
+  const rows = buildStoreRows(stocks);
 
-  useEffect(() => {
-    if (groups.length > 0 && Object.keys(expanded).length === 0) {
-      const init = {};
-      groups.forEach(g => { init[g.pic] = true; });
-      setExpanded(init);
-    }
-  }, [groups.length]);
-
-  const grandTotal = groups.reduce((acc, g) => {
-    acc.stores     += g.stores;
-    acc.storesDone += g.storesDone;
-    acc.articles   += g.articles;
-    acc.artDone    += g.artDone;
+  const grandTotal = rows.reduce((acc, r) => {
+    acc.articles += r.articles;
+    acc.artDone  += r.artDone;
     return acc;
-  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0 });
-
-  function togglePic(pic) {
-    setExpanded(prev => ({ ...prev, [pic]: !prev[pic] }));
-  }
+  }, { articles: 0, artDone: 0 });
+  const storesDone = rows.filter(r => r.artDone === r.articles).length;
 
   function handleSort(col) {
     setSort(prev => ({
@@ -53,16 +39,7 @@ export default function QlkvProgressView({ username, name, onLogout, onViewDetai
     }));
   }
 
-  const sortedGroups = sortGroups(groups, sort);
-
-  const allExpanded = groups.length > 0 && groups.every(g => expanded[g.pic]);
-
-  function toggleAll() {
-    const next = !allExpanded;
-    const updated = {};
-    groups.forEach(g => { updated[g.pic] = next; });
-    setExpanded(updated);
-  }
+  const sortedRows = sortStoreRows(rows, sort);
 
   return (
     <div className={styles.wrapper}>
@@ -86,12 +63,12 @@ export default function QlkvProgressView({ username, name, onLogout, onViewDetai
 
         {!loading && !error && stocks.length > 0 && (
           <div className={styles.summaryBar}>
-            <SummaryCard label="Tổng CH"  value={grandTotal.stores} />
-            <SummaryCard label="CH xong"  value={grandTotal.storesDone} color="green"
-              sub={pct(grandTotal.storesDone, grandTotal.stores)} />
+            <SummaryCard label="Tổng CH"  value={rows.length} />
+            <SummaryCard label="CH xong"  value={storesDone} color="green"
+              sub={fmtPct(storesDone, rows.length)} />
             <SummaryCard label="Tổng mã"  value={grandTotal.articles} />
             <SummaryCard label="Mã đã XN" value={grandTotal.artDone} color="green"
-              sub={pct(grandTotal.artDone, grandTotal.articles)} />
+              sub={fmtPct(grandTotal.artDone, grandTotal.articles)} />
           </div>
         )}
       </header>
@@ -99,73 +76,36 @@ export default function QlkvProgressView({ username, name, onLogout, onViewDetai
       <div className={styles.body}>
         {loading && <div className={styles.center}><span className={styles.spinner} /></div>}
         {error   && <p className={styles.errorMsg}>{error}</p>}
-        {!loading && !error && groups.length === 0 && (
+        {!loading && !error && rows.length === 0 && (
           <p className={styles.emptyText}>Không có dữ liệu.</p>
         )}
 
-        {!loading && !error && groups.length > 0 && (
+        {!loading && !error && rows.length > 0 && (
           <div className={`${styles.tableWrap} ${styles.tableWrapWide}`}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th className={styles.thName}>
-                    <div className={styles.thNameInner}>
-                      <span>PIC / Cửa hàng</span>
-                      <button className={styles.toggleAllBtn} onClick={toggleAll}
-                        title={allExpanded ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}>
-                        {allExpanded ? '⊟ Thu gọn' : '⊞ Mở rộng'}
-                      </button>
-                    </div>
-                  </th>
-                  <SortTh col="stores"     sort={sort} onSort={handleSort} cls={styles.thNum}>Số CH</SortTh>
-                  <SortTh col="storesDone" sort={sort} onSort={handleSort} cls={styles.thNum}>CH xong</SortTh>
-                  <SortTh col="articles"   sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
-                  <SortTh col="artDone"    sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
-                  <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
+                  <SortTh col="store"    sort={sort} onSort={handleSort} cls={styles.thName}>Cửa hàng</SortTh>
+                  <SortTh col="articles" sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
+                  <SortTh col="artDone"  sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
+                  <SortTh col="pct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
                 </tr>
               </thead>
               <tbody>
-                {sortedGroups.map(g => (
-                  <>
-                    {/* PIC row */}
-                    <tr key={g.pic} className={styles.ksttRow}
-                        onClick={() => togglePic(g.pic)}>
-                      <td className={styles.ksttCell}>
-                        <span className={styles.chevron}>{expanded[g.pic] ? '▾' : '▸'}</span>
-                        {g.pic || '— Chưa phân công —'}
-                      </td>
-                      <td className={styles.numCell}>{g.stores}</td>
-                      <td className={styles.numCell}>
-                        <span className={isDone(g.storesDone, g.stores) ? styles.numDone : ''}>{g.storesDone}</span>
-                      </td>
-                      <td className={styles.numCell}>{g.articles}</td>
-                      <td className={styles.numCell}>
-                        <span className={isDone(g.artDone, g.articles) ? styles.numDone : ''}>{g.artDone}</span>
-                      </td>
-                      <td className={styles.pctCell}>
-                        <ProgressBar value={g.artDone} total={g.articles} />
-                      </td>
-                    </tr>
-
-                    {/* Store rows */}
-                    {expanded[g.pic] && g.storeList.map(s => (
-                      <tr key={g.pic + '|' + s.store} className={styles.qlkvRow}>
-                        <td className={styles.storeCellInner}>
-                          <span className={styles.storeCodeInner}>{s.store}</span>
-                          <span className={styles.storeNameInner}>{s.store_name}</span>
-                        </td>
-                        <td className={styles.numCell}>—</td>
-                        <td className={styles.numCell}>—</td>
-                        <td className={styles.numCell}>{s.articles}</td>
-                        <td className={styles.numCell}>
-                          <span className={isDone(s.artDone, s.articles) ? styles.numDone : ''}>{s.artDone}</span>
-                        </td>
-                        <td className={styles.pctCell}>
-                          <ProgressBar value={s.artDone} total={s.articles} />
-                        </td>
-                      </tr>
-                    ))}
-                  </>
+                {sortedRows.map(r => (
+                  <tr key={r.store} className={r.artDone === r.articles ? styles.qlkvRow : styles.qlkvRow}>
+                    <td className={styles.storeCellInner}>
+                      <span className={styles.storeCodeInner}>{r.store}</span>
+                      <span className={styles.storeNameInner}>{r.store_name}</span>
+                    </td>
+                    <td className={styles.numCell}>{r.articles}</td>
+                    <td className={styles.numCell}>
+                      <span className={r.artDone === r.articles && r.articles > 0 ? styles.numDone : ''}>{r.artDone}</span>
+                    </td>
+                    <td className={styles.pctCell}>
+                      <ProgressBar value={r.artDone} total={r.articles} />
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -211,47 +151,28 @@ function SortTh({ col, sort, onSort, cls, children }) {
   );
 }
 
-function sortGroups(groups, { col, dir }) {
-  if (!col) return groups;
+function sortStoreRows(rows, { col, dir }) {
+  if (!col) return rows;
   const sign = dir === 'asc' ? 1 : -1;
-  return [...groups].sort((a, b) => {
+  return [...rows].sort((a, b) => {
     let va, vb;
-    if (col === 'name')     { va = a.pic;        vb = b.pic; }
+    if (col === 'store') { va = `${a.store} ${a.store_name}`; vb = `${b.store} ${b.store_name}`; }
     else if (col === 'pct') { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
-    else                    { va = a[col] ?? 0;  vb = b[col] ?? 0; }
+    else { va = a[col] ?? 0; vb = b[col] ?? 0; }
     if (typeof va === 'string') return sign * va.localeCompare(vb, 'vi');
     return sign * (va - vb);
   });
 }
 
-function isDone(a, b) { return b > 0 && a === b; }
-function pct(a, b)    { return b ? `${Math.round(a / b * 100)}%` : ''; }
+function fmtPct(a, b) { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
-function buildPicGroups(stocks) {
-  const storeArt = {};
+function buildStoreRows(stocks) {
+  const map = {};
   stocks.forEach(s => {
     const key = String(s.store);
-    if (!storeArt[key]) storeArt[key] = { store_name: s.store_name || '', pic: s.pic || 'Chưa phân công', total: 0, done: 0 };
-    storeArt[key].total++;
-    if (s.counted_stock !== null && s.counted_stock !== '') storeArt[key].done++;
+    if (!map[key]) map[key] = { store: key, store_name: s.store_name || '', articles: 0, artDone: 0 };
+    map[key].articles++;
+    if (s.counted_stock !== null && s.counted_stock !== '') map[key].artDone++;
   });
-
-  const picMap = {};
-  Object.entries(storeArt).forEach(([storeCode, { store_name, pic, total, done }]) => {
-    if (!picMap[pic]) picMap[pic] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, storeList: [] };
-    const cell = picMap[pic];
-    cell.stores++;
-    if (done === total) cell.storesDone++;
-    cell.articles += total;
-    cell.artDone  += done;
-    cell.storeList.push({ store: storeCode, store_name, articles: total, artDone: done });
-  });
-
-  return Object.entries(picMap)
-    .sort(([a], [b]) => a.localeCompare(b, 'vi'))
-    .map(([pic, stats]) => ({
-      pic,
-      ...stats,
-      storeList: stats.storeList.sort((a, b) => String(a.store).localeCompare(String(b.store))),
-    }));
+  return Object.values(map).sort((a, b) => String(a.store).localeCompare(String(b.store)));
 }
