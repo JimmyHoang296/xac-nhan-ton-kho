@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { fetchQlkvStocks } from '../api';
 import styles from '../pic/PicDashboard.module.css';
 
-export default function QlkvDashboard({ username, name, onLogout }) {
+export default function QlkvDashboard({ username, name, onLogout, onSwitchProgress }) {
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -103,6 +103,9 @@ export default function QlkvDashboard({ username, name, onLogout }) {
                 </svg>
                 <span>Excel</span>
               </button>
+            )}
+            {onSwitchProgress && (
+              <button className={styles.progressBtn} onClick={onSwitchProgress}>Tổng quan</button>
             )}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
