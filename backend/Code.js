@@ -26,6 +26,12 @@ function doGet(e) {
       return respond(getProgress());
     }
 
+    if (action === 'getQlkvStocks') {
+      const username = e.parameter.username;
+      if (!username) return respond({ error: 'Missing username parameter' });
+      return respond(getQlkvStocks(username));
+    }
+
     return respond({ error: 'Unknown action' });
   } catch (err) {
     return respond({ error: err.message });
@@ -38,6 +44,7 @@ function doPost(e) {
     if (data.action === 'confirm')        return respond(confirmStock(data));
     if (data.action === 'picLogin')       return respond(picLogin(data));
     if (data.action === 'savePicComment') return respond(savePicComment(data));
+    if (data.action === 'qlkvLogin')      return respond(qlkvLogin(data));
     return respond({ error: 'Unknown action' });
   } catch (err) {
     return respond({ error: err.message });
@@ -356,6 +363,86 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+// ── QLKV functions ────────────────────────────────────────
+
+function qlkvLogin(data) {
+  const { username } = data;
+  if (!username) return { error: 'Missing username' };
+
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('qlkv');
+  if (!sheet) return { error: 'QLKV sheet not found' };
+
+  const [headers, ...rows] = sheet.getDataRange().getValues();
+  const uCol = headers.indexOf('username');
+  const nCol = headers.indexOf('name');
+
+  const row = rows.find(
+    r => String(r[uCol]).trim().toLowerCase() === String(username).trim().toLowerCase()
+  );
+  if (!row) return { error: 'Không tìm thấy tài khoản QLKV' };
+  return { success: true, username: String(row[uCol]).trim(), name: String(row[nCol]).trim() };
+}
+
+// GET ?action=getQlkvStocks&username=xxx
+function getQlkvStocks(username) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const storesData = ss.getSheetByName('stores').getDataRange().getValues();
+  const sh = storesData[0];
+  const qlkvIdIdx = sh.indexOf('QLKV id');
+
+  const matchedStores = {};
+  storesData.slice(1).forEach(r => {
+    if (String(r[qlkvIdIdx]).trim().toLowerCase() === String(username).trim().toLowerCase()) {
+      matchedStores[String(r[sh.indexOf('store')])] = {
+        store_name: r[sh.indexOf('store_name')] || '',
+        store_lat:  r[sh.indexOf('lat')]         || '',
+        store_long: r[sh.indexOf('long')]        || '',
+        cht:        r[sh.indexOf('CHT')]         || '',
+        sdt_cht:    r[sh.indexOf('SDT CHT')]     || '',
+        qlkv:       r[sh.indexOf('QLKV')]        || '',
+        sdt_qlkv:   r[sh.indexOf('SDT QLKV')]   || '',
+      };
+    }
+  });
+
+  const stocksData = ss.getSheetByName('stocks').getDataRange().getValues();
+  const h = stocksData[0];
+  const col = name => h.indexOf(name);
+  const get = (r, name) => { const c = col(name); return c !== -1 ? r[c] : null; };
+
+  const stocks = stocksData.slice(1)
+    .filter(r => matchedStores[String(get(r, 'store'))])
+    .map(r => {
+      const info = matchedStores[String(get(r, 'store'))] || {};
+      return {
+        store:          String(get(r, 'store')),
+        store_name:     info.store_name,
+        article:        get(r, 'article'),
+        article_name:   get(r, 'article_name'),
+        stock_day:      get(r, 'stock_day'),
+        stock:          get(r, 'stock'),
+        pic:            get(r, 'pic'),
+        current_stock:  get(r, 'current_stock'),
+        counted_stock:  get(r, 'counted_stock'),
+        note:           get(r, 'note'),
+        lat:            get(r, 'lat'),
+        long:           get(r, 'long'),
+        image:          get(r, 'image'),
+        time_stamp:     get(r, 'time_stamp'),
+        location_check: get(r, 'location_check'),
+        store_lat:      info.store_lat,
+        store_long:     info.store_long,
+        cht:            info.cht,
+        sdt_cht:        info.sdt_cht,
+        qlkv:           info.qlkv,
+        sdt_qlkv:       info.sdt_qlkv,
+      };
+    });
+
+  return { username, stocks };
 }
 
 // GET ?action=getProgress&pic=dunghd

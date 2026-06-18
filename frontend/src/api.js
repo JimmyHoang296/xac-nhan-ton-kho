@@ -48,6 +48,26 @@ export async function fetchProgress(pic) {
   return data;
 }
 
+export async function qlkvLogin(username) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'qlkvLogin', username }),
+  });
+  if (!res.ok) throw new Error('Lỗi kết nối máy chủ');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function fetchQlkvStocks(username) {
+  const res = await fetch(`${API_URL}?action=getQlkvStocks&username=${encodeURIComponent(username)}`);
+  if (!res.ok) throw new Error('Lỗi kết nối máy chủ');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
 export async function submitConfirmation(payload) {
   // GAS không hỗ trợ preflight OPTIONS nên dùng text/plain để tránh CORS preflight
   const res = await fetch(API_URL, {
