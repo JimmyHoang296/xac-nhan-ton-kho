@@ -192,3 +192,42 @@
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* Risk tags */
+.riskTag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.5rem;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.riskHigh   { background: #fce8e6; color: #c5221f; }
+.riskMedium { background: #fef7e0; color: #e37400; }
+.riskLow    { background: #e6f4ea; color: #137333; }
+
+/* Thùng info */
+.thungInfo {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.2rem;
+}
+.thungLabel {
+  font-size: 0.7rem;
+  color: #80868b;
+}
+.thungValue {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a73e8;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}

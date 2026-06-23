@@ -41,10 +41,11 @@ function doGet(e) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    if (data.action === 'confirm')        return respond(confirmStock(data));
-    if (data.action === 'picLogin')       return respond(picLogin(data));
-    if (data.action === 'savePicComment') return respond(savePicComment(data));
-    if (data.action === 'qlkvLogin')      return respond(qlkvLogin(data));
+    if (data.action === 'confirm')             return respond(confirmStock(data));
+    if (data.action === 'picLogin')            return respond(picLogin(data));
+    if (data.action === 'savePicComment')      return respond(savePicComment(data));
+    if (data.action === 'batchSavePicComment') return respond(batchSavePicComment(data));
+    if (data.action === 'qlkvLogin')           return respond(qlkvLogin(data));
     return respond({ error: 'Unknown action' });
   } catch (err) {
     return respond({ error: err.message });
@@ -91,6 +92,7 @@ function getStocksByStore(storeId) {
     const c = col(name);
     return c !== -1 ? r[c] : null;
   };
+  var thungCol = col('thùng') !== -1 ? 'thùng' : 'thung';
 
   const stocks = stocksData
     .slice(1)
@@ -103,7 +105,9 @@ function getStocksByStore(storeId) {
       pic:           get(r, 'pic'),
       current_stock: get(r, 'current_stock'),
       counted_stock: get(r, 'counted_stock'),
-      note:          get(r, 'note')
+      note:          get(r, 'note'),
+      thung:         get(r, thungCol),
+      risk:          get(r, 'risk')
     }));
 
   return {
@@ -255,6 +259,7 @@ function getPicStocks(picName) {
     const c = col(name);
     return c !== -1 ? r[c] : null;
   };
+  var thungCol = col('thùng') !== -1 ? 'thùng' : 'thung';
 
   const stocks = stocksData
     .slice(1)
@@ -274,7 +279,9 @@ function getPicStocks(picName) {
       time_stamp:    get(r, 'time_stamp'),
       location_check: get(r, 'location_check'),
       pic_comment:   get(r, 'pic_comment'),
-      pic_status:    get(r, 'pic_status')
+      pic_status:    get(r, 'pic_status'),
+      thung:         get(r, thungCol),
+      risk:          get(r, 'risk')
     }));
 
   // Gắn thêm store_name, store_lat, store_long từ sheet stores
@@ -335,6 +342,44 @@ function savePicComment(data) {
   }
 
   return { success: true };
+}
+
+// data: { pic, items: [{store, article, comment, pic_status}] }
+function batchSavePicComment(data) {
+  const { pic, items } = data;
+  if (!pic || !Array.isArray(items) || items.length === 0) return { error: 'Missing pic or items' };
+
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('stocks');
+  const values = sheet.getDataRange().getValues();
+  const h = values[0];
+  const col = function(name) { return h.indexOf(name); };
+  var picCommentCol = col('pic_comment');
+  var picStatusCol  = col('pic_status');
+  if (picCommentCol === -1) return { error: 'Column pic_comment not found' };
+
+  var saved = 0;
+  var errors = [];
+  items.forEach(function(item) {
+    var rowIdx = -1;
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][col('store')]) === String(item.store) &&
+          String(values[i][col('article')]) === String(item.article)) {
+        rowIdx = i;
+        break;
+      }
+    }
+    if (rowIdx === -1) {
+      errors.push(item.store + '-' + item.article + ' not found');
+      return;
+    }
+    sheet.getRange(rowIdx + 1, picCommentCol + 1).setValue(item.comment || '');
+    if (picStatusCol !== -1) {
+      sheet.getRange(rowIdx + 1, picStatusCol + 1).setValue(item.pic_status || '');
+    }
+    saved++;
+  });
+
+  return { success: true, saved: saved, errors: errors };
 }
 
 // Lấy hoặc tạo subfolder theo tên
@@ -412,6 +457,7 @@ function getQlkvStocks(username) {
   const h = stocksData[0];
   const col = name => h.indexOf(name);
   const get = (r, name) => { const c = col(name); return c !== -1 ? r[c] : null; };
+  var thungCol = col('thùng') !== -1 ? 'thùng' : 'thung';
 
   const stocks = stocksData.slice(1)
     .filter(r => matchedStores[String(get(r, 'store'))])
@@ -433,6 +479,8 @@ function getQlkvStocks(username) {
         image:          get(r, 'image'),
         time_stamp:     get(r, 'time_stamp'),
         location_check: get(r, 'location_check'),
+        thung:          get(r, thungCol),
+        risk:           get(r, 'risk'),
         store_lat:      info.store_lat,
         store_long:     info.store_long,
         cht:            info.cht,

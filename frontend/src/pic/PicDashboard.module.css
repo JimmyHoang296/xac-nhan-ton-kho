@@ -328,6 +328,18 @@
 .pfXmt.pfChipActive              { background: #fef7e0; border-color: #fbbc04; }
 .pfNone.pfChipActive             { background: #f1f3f4; border-color: #5f6368; }
 
+/* Risk filter chips */
+.rfHigh   { border-color: #ea4335; color: #c5221f; }
+.rfHigh   .pfCount { background: #fce8e6; color: #c5221f; }
+.rfMedium { border-color: #fbbc04; color: #e37400; }
+.rfMedium .pfCount { background: #fef7e0; color: #e37400; }
+.rfLow    { border-color: #34a853; color: #137333; }
+.rfLow    .pfCount { background: #e6f4ea; color: #137333; }
+
+.rfHigh.pfChipActive   { background: #fce8e6; border-color: #ea4335; }
+.rfMedium.pfChipActive { background: #fef7e0; border-color: #fbbc04; }
+.rfLow.pfChipActive    { background: #e6f4ea; border-color: #34a853; }
+
 /* ── Store list (single column in list panel) ── */
 .storeList {
   display: flex;
@@ -810,6 +822,39 @@
 .imgLink:hover  { background: #c5d8fb; }
 .imgLink:active { background: #a8c7fa; }
 
+/* Risk tags */
+.riskTag {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.riskHigh   { background: #fce8e6; color: #c5221f; }
+.riskMedium { background: #fef7e0; color: #e37400; }
+.riskLow    { background: #e6f4ea; color: #137333; }
+
+/* Thùng info in detail */
+.thungChip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  align-self: center;
+  flex-shrink: 0;
+}
+.thungChipText {
+  font-size: 0.82rem;
+  color: #1a73e8;
+  font-weight: 600;
+}
+
 
 /* ═══════════════════════════════════════
    TABLET ≥ 640px — note + comment side by side
@@ -898,4 +943,82 @@
   .listPanel  { width: 420px; }
   .imgItem    { width: 360px; }
   .confirmImg { max-height: 420px; }
+}
+
+/* ═══════════════════════════════════════
+   BATCH SAVE BAR & UNSAVED INDICATORS
+   ═══════════════════════════════════════ */
+.rowUnsaved {
+  border-left-color: #1a73e8 !important;
+  background: #f0f6ff;
+}
+
+.unsavedDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1a73e8;
+  flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+.unsavedLabel {
+  font-size: 0.75rem;
+  color: #1a73e8;
+  font-weight: 600;
+}
+
+.batchBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: white;
+  border-top: 2px solid #1a73e8;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
+}
+
+.batchBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.5rem;
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.batchBtn:hover:not(:disabled)  { background: #1765cc; }
+.batchBtn:active:not(:disabled) { background: #1558b0; }
+.batchBtn:disabled { background: #c5d8fb; cursor: not-allowed; }
+
+.batchMsg {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #137333;
+}
+
+.spinnerSmall {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }

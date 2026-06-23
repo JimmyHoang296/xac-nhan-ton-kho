@@ -52,6 +52,8 @@ export default function StockList({ storeName, storeCode, stocks, onCardClick })
 }
 
 function StockCard({ stock, confirmed, onClick }) {
+  const thung = stock.thung ? Number(stock.thung) : 0;
+
   return (
     <button
       className={`${styles.card} ${confirmed ? styles.cardDone : styles.cardPending}`}
@@ -77,6 +79,12 @@ function StockCard({ stock, confirmed, onClick }) {
           </div>
         )}
       </div>
+      {confirmed && thung > 0 && stock.counted_stock != null && stock.counted_stock !== '' && (
+        <div className={styles.thungInfo}>
+          <span className={styles.thungLabel}>{thung} SP/thùng →</span>
+          <span className={styles.thungValue}>{formatThung(Number(stock.counted_stock), thung)}</span>
+        </div>
+      )}
       {!confirmed && (
         <div className={styles.cardArrow}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -86,6 +94,14 @@ function StockCard({ stock, confirmed, onClick }) {
       )}
     </button>
   );
+}
+
+function formatThung(qty, thung) {
+  if (!thung || thung <= 0) return '';
+  const boxes = Math.floor(qty / thung);
+  const remainder = qty % thung;
+  if (remainder === 0) return `${boxes} thùng`;
+  return `${boxes} thùng + ${remainder} lẻ`;
 }
 function formatDate(val) {
   if (!val) return '';

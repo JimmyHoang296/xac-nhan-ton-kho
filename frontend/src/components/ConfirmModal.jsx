@@ -13,6 +13,8 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
   const [error, setError] = useState('');
   const overlayRef = useRef(null);
 
+  const thung = stock.thung ? Number(stock.thung) : 0;
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -113,6 +115,12 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
                   <span className={styles.stockItemValue}>{formatDate(stock.stock_day)}</span>
                 </div>
               )}
+              {thung > 0 && (
+                <div className={styles.stockItem}>
+                  <span className={styles.stockItemLabel}>SP/Thùng</span>
+                  <span className={styles.stockItemValue}>{thung}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -150,6 +158,15 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
                 />
               </div>
             </div>
+
+            {thung > 0 && countedStock !== '' && (
+              <div className={styles.thungCalc}>
+                <span className={styles.thungIcon}>📦</span>
+                <span className={styles.thungText}>
+                  {thung} SP/thùng → <strong>{formatThung(Number(countedStock), thung)}</strong>
+                </span>
+              </div>
+            )}
 
             <div className={styles.field}>
               <label className={styles.label}>Ghi chú</label>
@@ -249,4 +266,12 @@ function formatDate(val) {
   const d = new Date(val);
   if (isNaN(d)) return String(val);
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatThung(qty, thung) {
+  if (!thung || thung <= 0) return '';
+  const boxes = Math.floor(qty / thung);
+  const remainder = qty % thung;
+  if (remainder === 0) return `${boxes} thùng`;
+  return `${boxes} thùng + ${remainder} lẻ`;
 }

@@ -418,3 +418,34 @@
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Risk tags */
+.riskTag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.5rem;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 0.3rem;
+}
+.riskHigh   { background: #fce8e6; color: #c5221f; }
+.riskMedium { background: #fef7e0; color: #e37400; }
+.riskLow    { background: #e6f4ea; color: #137333; }
+
+/* Thùng calculation */
+.thungCalc {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+}
+.thungIcon { font-size: 1.1rem; }
+.thungText {
+  font-size: 0.85rem;
+  color: #1a73e8;
+}

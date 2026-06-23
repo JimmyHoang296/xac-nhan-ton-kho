@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { fetchPicStocks, savePicComment } from '../api';
+import { fetchPicStocks, batchSavePicComment } from '../api';
 import styles from './PicDashboard.module.css';
 
 export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
@@ -8,10 +8,14 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedKey, setSelectedKey] = useState(null);
-  const [filter, setFilter] = useState('all'); // 'all' | 'confirmed' | 'pending'
-  const [picStatusFilter, setPicStatusFilter] = useState('all'); // 'all' | 'ok' | 'xlvp' | 'xac_minh_them' | 'none'
+  const [filter, setFilter] = useState('all');
+  const [picStatusFilter, setPicStatusFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyPendingStores, setShowOnlyPendingStores] = useState(false);
+  const [localChanges, setLocalChanges] = useState({});
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [batchMsg, setBatchMsg] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,12 +32,33 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
 
   useEffect(() => { load(); }, [load]);
 
-  function handleCommentSaved(store, article, comment, status) {
+  function handleLocalChange(store, article, comment, status) {
+    const key = `${store}-${article}`;
+    setLocalChanges(prev => ({ ...prev, [key]: { store, article, comment, pic_status: status } }));
     setStocks(prev => prev.map(s =>
       s.store === store && String(s.article) === String(article)
         ? { ...s, pic_comment: comment, pic_status: status }
         : s
     ));
+  }
+
+  const pendingCount = Object.keys(localChanges).length;
+
+  async function handleBatchSave() {
+    if (pendingCount === 0) return;
+    setBatchSaving(true);
+    setBatchMsg('');
+    try {
+      const items = Object.values(localChanges);
+      const result = await batchSavePicComment(pic, items);
+      setLocalChanges({});
+      setBatchMsg(`Đã lưu ${result.saved} mục`);
+      setTimeout(() => setBatchMsg(''), 3000);
+    } catch (err) {
+      setBatchMsg(`Lỗi: ${err.message}`);
+    } finally {
+      setBatchSaving(false);
+    }
   }
 
   const confirmed = stocks.filter(s => s.counted_stock !== null && s.counted_stock !== '');
@@ -44,17 +69,28 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
                    : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
                    : stocks;
 
-  const filteredStocks = picStatusFilter === 'all'  ? byXnFilter
+  const byPicStatus = picStatusFilter === 'all'  ? byXnFilter
     : picStatusFilter === 'none' ? byXnFilter.filter(s => !s.pic_status || s.pic_status === '')
     : byXnFilter.filter(s => s.pic_status === picStatusFilter);
 
-  // Đếm số item theo từng pic_status (trên toàn bộ stocks, không phụ thuộc filter XN)
+  const filteredStocks = riskFilter === 'all' ? byPicStatus
+    : riskFilter === 'none' ? byPicStatus.filter(s => !s.risk || String(s.risk).trim() === '')
+    : byPicStatus.filter(s => normalizeRisk(s.risk) === riskFilter);
+
   const picCounts = {
     all:           stocks.length,
     none:          stocks.filter(s => !s.pic_status || s.pic_status === '').length,
     ok:            stocks.filter(s => s.pic_status === 'ok').length,
     xlvp:          stocks.filter(s => s.pic_status === 'xlvp').length,
     xac_minh_them: stocks.filter(s => s.pic_status === 'xac_minh_them').length,
+  };
+
+  const riskCounts = {
+    all:  stocks.length,
+    none: stocks.filter(s => !s.risk || String(s.risk).trim() === '').length,
+    cao:  stocks.filter(s => normalizeRisk(s.risk) === 'cao').length,
+    tb:   stocks.filter(s => normalizeRisk(s.risk) === 'tb').length,
+    thap: stocks.filter(s => normalizeRisk(s.risk) === 'thap').length,
   };
 
   const byStore = filteredStocks.reduce((acc, s) => {
@@ -206,6 +242,26 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
                 ))}
               </div>
 
+              {/* Filter chips theo risk */}
+              <div className={styles.picFilterBar}>
+                {[
+                  { key: 'all',  label: 'Risk: Tất cả', cls: '' },
+                  { key: 'cao',  label: 'Cao',           cls: styles.rfHigh },
+                  { key: 'tb',   label: 'Trung bình',    cls: styles.rfMedium },
+                  { key: 'thap', label: 'Thấp',          cls: styles.rfLow },
+                  { key: 'none', label: 'Chưa set',      cls: styles.pfNone },
+                ].map(({ key, label, cls }) => (
+                  <button
+                    key={key}
+                    className={`${styles.pfChip} ${cls} ${riskFilter === key ? styles.pfChipActive : ''}`}
+                    onClick={() => setRiskFilter(key)}
+                  >
+                    {label}
+                    {riskCounts[key] > 0 && <span className={styles.pfCount}>{riskCounts[key]}</span>}
+                  </button>
+                ))}
+              </div>
+
               {displayedGroups.length === 0 && (
                 <div className={styles.center}>
                   <p className={styles.emptyText}>Không tìm thấy cửa hàng phù hợp.</p>
@@ -233,6 +289,7 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
                           stock={stock}
                           isConfirmed={isConfirmed}
                           isSelected={selectedKey === key}
+                          hasUnsaved={!!localChanges[key]}
                           onClick={() => setSelectedKey(key)}
                         />
                       );
@@ -249,9 +306,9 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
           {currentSelectedStock ? (
             <DetailPanel
               stock={currentSelectedStock}
-              pic={pic}
               onBack={() => setSelectedKey(null)}
-              onCommentSaved={handleCommentSaved}
+              onLocalChange={handleLocalChange}
+              hasUnsaved={!!localChanges[selectedKey]}
             />
           ) : (
             <div className={styles.detailPlaceholder}>
@@ -264,6 +321,20 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
           )}
         </div>
       </div>
+
+      {/* Floating batch save */}
+      {(pendingCount > 0 || batchMsg) && (
+        <div className={styles.batchBar}>
+          {batchMsg && <span className={styles.batchMsg}>{batchMsg}</span>}
+          {pendingCount > 0 && (
+            <button className={styles.batchBtn} onClick={handleBatchSave} disabled={batchSaving}>
+              {batchSaving
+                ? <><span className={styles.spinnerSmall} /> Đang lưu...</>
+                : <>Lưu tất cả ({pendingCount})</>}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -271,7 +342,7 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
 /* ─────────────────────────────────────────
    StockRow — compact clickable list item
 ───────────────────────────────────────── */
-function StockRow({ stock, isConfirmed, isSelected, onClick }) {
+function StockRow({ stock, isConfirmed, isSelected, hasUnsaved, onClick }) {
   const diff = isConfirmed
     ? Number(stock.counted_stock) - Number(stock.current_stock || 0)
     : null;
@@ -283,7 +354,7 @@ function StockRow({ stock, isConfirmed, isSelected, onClick }) {
 
   return (
     <button
-      className={`${styles.row} ${isConfirmed ? styles.rowDone : styles.rowPending} ${isSelected ? styles.rowSelected : ''}`}
+      className={`${styles.row} ${isConfirmed ? styles.rowDone : styles.rowPending} ${isSelected ? styles.rowSelected : ''} ${hasUnsaved ? styles.rowUnsaved : ''}`}
       onClick={onClick}
     >
       <div className={styles.rowInfo}>
@@ -324,6 +395,8 @@ function StockRow({ stock, isConfirmed, isSelected, onClick }) {
       </div>
 
       <div className={styles.rowRight}>
+        {hasUnsaved && <span className={styles.unsavedDot} title="Chưa lưu" />}
+        {riskTagEl(stock.risk)}
         {statusCls && (
           <span className={`${styles.picStatusTag} ${statusCls}`}>
             {PIC_STATUS_LABELS[stock.pic_status]}
@@ -340,17 +413,13 @@ function StockRow({ stock, isConfirmed, isSelected, onClick }) {
 /* ─────────────────────────────────────────
    DetailPanel — right-side detail view
 ───────────────────────────────────────── */
-function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
+function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
   const [comment, setComment] = useState(stock.pic_comment || '');
   const [status,  setStatus]  = useState(stock.pic_status  || '');
-  const [saving,  setSaving]  = useState(false);
-  const [saveMsg, setSaveMsg] = useState('');
 
-  // Sync when different item is selected
   useEffect(() => {
     setComment(stock.pic_comment || '');
     setStatus(stock.pic_status   || '');
-    setSaveMsg('');
   }, [stock.store, stock.article]);
 
   const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
@@ -358,20 +427,13 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
     ? Number(stock.counted_stock) - Number(stock.current_stock || 0)
     : null;
 
-  async function handleSave() {
-    setSaving(true);
-    setSaveMsg('');
-    try {
-      await savePicComment(pic, stock.store, stock.article, comment, status);
-      onCommentSaved(stock.store, stock.article, comment, status);
-      setSaveMsg('Đã lưu');
-      setTimeout(() => setSaveMsg(''), 2000);
-    } catch {
-      setSaveMsg('Lỗi lưu');
-    } finally {
-      setSaving(false);
-    }
+  function handleApply() {
+    onLocalChange(stock.store, stock.article, comment, status);
   }
+
+  const origComment = stock.pic_comment || '';
+  const origStatus  = stock.pic_status  || '';
+  const hasLocalEdit = comment !== origComment || status !== origStatus;
 
   return (
     <div className={styles.detailPanelInner}>
@@ -387,6 +449,7 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
           <span className={`${styles.badge} ${isConfirmed ? styles.badgeDone : styles.badgePending}`}>
             {isConfirmed ? '✓ Đã XN' : 'Chờ XN'}
           </span>
+          {riskTagEl(stock.risk)}
           <h2 className={styles.detailArticleName}>{stock.article_name}</h2>
         </div>
         <div className={styles.detailStoreRow}>
@@ -463,6 +526,7 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
             </a>
           );
         })()}
+        {thungInfo(stock)}
       </div>
 
       {/* Body */}
@@ -497,9 +561,13 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
               onChange={e => setComment(e.target.value)}
             />
             <div className={styles.commentFooter}>
-              {saveMsg && <span className={styles.saveMsg}>{saveMsg}</span>}
-              <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+              {hasUnsaved && <span className={styles.unsavedLabel}>Chưa lưu lên server</span>}
+              <button
+                className={styles.saveBtn}
+                onClick={handleApply}
+                disabled={!hasLocalEdit && hasUnsaved}
+              >
+                Xác nhận
               </button>
             </div>
           </div>
@@ -523,6 +591,51 @@ function DetailPanel({ stock, pic, onBack, onCommentSaved }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function normalizeRisk(risk) {
+  if (!risk) return '';
+  const r = String(risk).toLowerCase().trim();
+  if (r === 'cao') return 'cao';
+  if (r === 'trung bình' || r === 'trung binh' || r === 'tb') return 'tb';
+  if (r === 'thấp' || r === 'thap') return 'thap';
+  return '';
+}
+
+/* ── Risk & Thùng helpers ── */
+function riskTagEl(risk) {
+  if (!risk) return null;
+  const r = String(risk).toLowerCase().trim();
+  const cls = r === 'cao' ? styles.riskHigh
+    : (r === 'trung bình' || r === 'trung binh' || r === 'tb') ? styles.riskMedium
+    : (r === 'thấp' || r === 'thap') ? styles.riskLow
+    : null;
+  if (!cls) return null;
+  return <span className={`${styles.riskTag} ${cls}`}>{risk}</span>;
+}
+
+function formatThung(qty, thung) {
+  if (!thung || thung <= 0) return '';
+  const boxes = Math.floor(qty / thung);
+  const remainder = qty % thung;
+  if (remainder === 0) return `${boxes} thùng`;
+  return `${boxes} thùng + ${remainder} lẻ`;
+}
+
+function thungInfo(stock) {
+  const thung = stock.thung ? Number(stock.thung) : 0;
+  if (!thung) return null;
+  const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
+  const qty = isConfirmed ? Number(stock.counted_stock) : null;
+  return (
+    <div className={styles.thungChip}>
+      <span>📦</span>
+      <span className={styles.thungChipText}>
+        {thung} SP/thùng
+        {qty != null && ` → ${formatThung(qty, thung)}`}
+      </span>
     </div>
   );
 }

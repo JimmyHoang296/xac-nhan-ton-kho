@@ -9,6 +9,7 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
   const [error, setError] = useState('');
   const [selectedKey, setSelectedKey] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async () => {
@@ -30,9 +31,21 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
   const pending   = stocks.filter(s => s.counted_stock === null || s.counted_stock === '');
 
   const isConfirmedFn = s => s.counted_stock !== null && s.counted_stock !== '';
-  const filteredStocks = filter === 'confirmed' ? stocks.filter(isConfirmedFn)
-                       : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
-                       : stocks;
+  const byXnFilter = filter === 'confirmed' ? stocks.filter(isConfirmedFn)
+                    : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
+                    : stocks;
+
+  const filteredStocks = riskFilter === 'all' ? byXnFilter
+    : riskFilter === 'none' ? byXnFilter.filter(s => !s.risk || String(s.risk).trim() === '')
+    : byXnFilter.filter(s => normalizeRisk(s.risk) === riskFilter);
+
+  const riskCounts = {
+    all:  stocks.length,
+    none: stocks.filter(s => !s.risk || String(s.risk).trim() === '').length,
+    cao:  stocks.filter(s => normalizeRisk(s.risk) === 'cao').length,
+    tb:   stocks.filter(s => normalizeRisk(s.risk) === 'tb').length,
+    thap: stocks.filter(s => normalizeRisk(s.risk) === 'thap').length,
+  };
 
   const byStore = filteredStocks.reduce((acc, s) => {
     const key = s.store;
@@ -143,6 +156,26 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
                 )}
               </div>
 
+              {/* Filter chips theo risk */}
+              <div className={styles.picFilterBar}>
+                {[
+                  { key: 'all',  label: 'Risk: Tất cả', cls: '' },
+                  { key: 'cao',  label: 'Cao',           cls: styles.rfHigh },
+                  { key: 'tb',   label: 'Trung bình',    cls: styles.rfMedium },
+                  { key: 'thap', label: 'Thấp',          cls: styles.rfLow },
+                  { key: 'none', label: 'Chưa set',      cls: styles.pfNone },
+                ].map(({ key, label, cls }) => (
+                  <button
+                    key={key}
+                    className={`${styles.pfChip} ${cls} ${riskFilter === key ? styles.pfChipActive : ''}`}
+                    onClick={() => setRiskFilter(key)}
+                  >
+                    {label}
+                    {riskCounts[key] > 0 && <span className={styles.pfCount}>{riskCounts[key]}</span>}
+                  </button>
+                ))}
+              </div>
+
               {displayedGroups.length === 0 && (
                 <div className={styles.center}>
                   <p className={styles.emptyText}>Không tìm thấy cửa hàng phù hợp.</p>
@@ -242,6 +275,7 @@ function StockRow({ stock, isConfirmed, isSelected, onClick }) {
         </div>
       </div>
       <div className={styles.rowRight}>
+        {riskTagEl(stock.risk)}
         {stock.pic && <span className={styles.metaItem} style={{ fontSize: '11px', color: '#80868b' }}>{stock.pic}</span>}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={styles.chevronRight}>
           <path d="M6 4l4 4-4 4" stroke="#bdc1c6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -271,6 +305,7 @@ function DetailPanel({ stock, onBack }) {
           <span className={`${styles.badge} ${isConfirmed ? styles.badgeDone : styles.badgePending}`}>
             {isConfirmed ? '✓ Đã XN' : 'Chờ XN'}
           </span>
+          {riskTagEl(stock.risk)}
           <h2 className={styles.detailArticleName}>{stock.article_name}</h2>
         </div>
         <div className={styles.detailStoreRow}>
@@ -333,6 +368,7 @@ function DetailPanel({ stock, onBack }) {
             </a>
           );
         })()}
+        {thungInfo(stock)}
       </div>
 
       {/* Body */}
@@ -361,6 +397,51 @@ function DetailPanel({ stock, onBack }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function normalizeRisk(risk) {
+  if (!risk) return '';
+  const r = String(risk).toLowerCase().trim();
+  if (r === 'cao') return 'cao';
+  if (r === 'trung bình' || r === 'trung binh' || r === 'tb') return 'tb';
+  if (r === 'thấp' || r === 'thap') return 'thap';
+  return '';
+}
+
+/* ── Risk & Thùng helpers ── */
+function riskTagEl(risk) {
+  if (!risk) return null;
+  const r = String(risk).toLowerCase().trim();
+  const cls = r === 'cao' ? styles.riskHigh
+    : (r === 'trung bình' || r === 'trung binh' || r === 'tb') ? styles.riskMedium
+    : (r === 'thấp' || r === 'thap') ? styles.riskLow
+    : null;
+  if (!cls) return null;
+  return <span className={`${styles.riskTag} ${cls}`}>{risk}</span>;
+}
+
+function formatThung(qty, thung) {
+  if (!thung || thung <= 0) return '';
+  const boxes = Math.floor(qty / thung);
+  const remainder = qty % thung;
+  if (remainder === 0) return `${boxes} thùng`;
+  return `${boxes} thùng + ${remainder} lẻ`;
+}
+
+function thungInfo(stock) {
+  const thung = stock.thung ? Number(stock.thung) : 0;
+  if (!thung) return null;
+  const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
+  const qty = isConfirmed ? Number(stock.counted_stock) : null;
+  return (
+    <div className={styles.thungChip}>
+      <span>📦</span>
+      <span className={styles.thungChipText}>
+        {thung} SP/thùng
+        {qty != null && ` → ${formatThung(qty, thung)}`}
+      </span>
     </div>
   );
 }
