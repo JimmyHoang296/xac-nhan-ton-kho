@@ -346,40 +346,56 @@ function savePicComment(data) {
 
 // data: { pic, items: [{store, article, comment, pic_status}] }
 function batchSavePicComment(data) {
-  const { pic, items } = data;
-  if (!pic || !Array.isArray(items) || items.length === 0) return { error: 'Missing pic or items' };
+  var pic   = data.pic;
+  var items = data.items;
+  if (!pic || !Array.isArray(items) || items.length === 0) {
+    return { error: 'Missing pic or items', receivedPic: pic, itemCount: items ? items.length : 0 };
+  }
 
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('stocks');
-  const values = sheet.getDataRange().getValues();
-  const h = values[0];
-  const col = function(name) { return h.indexOf(name); };
-  var picCommentCol = col('pic_comment');
-  var picStatusCol  = col('pic_status');
-  if (picCommentCol === -1) return { error: 'Column pic_comment not found' };
+  var sheet  = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('stocks');
+  var all    = sheet.getDataRange().getValues();
+  var h      = all[0];
+  var storeCol      = h.indexOf('store');
+  var articleCol    = h.indexOf('article');
+  var picStatusCol  = h.indexOf('pic_status');
+  var picCommentCol = h.indexOf('pic_comment');
 
-  var saved = 0;
+  if (picStatusCol === -1 || picCommentCol === -1) {
+    return { error: 'Columns not found', picStatusCol: picStatusCol, picCommentCol: picCommentCol, headers: h };
+  }
+
+  // Tạo lookup map: "store-article" → rowIndex (1-based sheet row)
+  var rowMap = {};
+  for (var i = 1; i < all.length; i++) {
+    var key = String(all[i][storeCol]).trim() + '-' + String(all[i][articleCol]).trim();
+    rowMap[key] = i + 1; // sheet row = array index + 1
+  }
+
+  var saved  = 0;
   var errors = [];
-  items.forEach(function(item) {
-    var rowIdx = -1;
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][col('store')]) === String(item.store) &&
-          String(values[i][col('article')]) === String(item.article)) {
-        rowIdx = i;
-        break;
-      }
-    }
-    if (rowIdx === -1) {
-      errors.push(item.store + '-' + item.article + ' not found');
-      return;
-    }
-    sheet.getRange(rowIdx + 1, picCommentCol + 1).setValue(item.comment || '');
-    if (picStatusCol !== -1) {
-      sheet.getRange(rowIdx + 1, picStatusCol + 1).setValue(item.pic_status || '');
-    }
-    saved++;
-  });
+  var debug  = [];
 
-  return { success: true, saved: saved, errors: errors };
+  for (var j = 0; j < items.length; j++) {
+    var item        = items[j];
+    var itemStore   = String(item.store).trim();
+    var itemArticle = String(item.article).trim();
+    var lookupKey   = itemStore + '-' + itemArticle;
+    var sheetRow    = rowMap[lookupKey];
+
+    if (!sheetRow) {
+      errors.push(lookupKey + ' not found');
+      debug.push({ key: lookupKey, found: false });
+      continue;
+    }
+
+    sheet.getRange(sheetRow, picStatusCol + 1).setValue(item.pic_status || '');
+    sheet.getRange(sheetRow, picCommentCol + 1).setValue(item.comment || '');
+    saved++;
+    debug.push({ key: lookupKey, row: sheetRow, status: item.pic_status, comment: item.comment });
+  }
+
+  SpreadsheetApp.flush();
+  return { success: true, saved: saved, total: items.length, errors: errors, debug: debug };
 }
 
 // Lấy hoặc tạo subfolder theo tên

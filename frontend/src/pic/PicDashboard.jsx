@@ -34,7 +34,7 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
 
   function handleLocalChange(store, article, comment, status) {
     const key = `${store}-${article}`;
-    setLocalChanges(prev => ({ ...prev, [key]: { store, article, comment, pic_status: status } }));
+    setLocalChanges(prev => ({ ...prev, [key]: { store: String(store), article: String(article), comment, pic_status: status } }));
     setStocks(prev => prev.map(s =>
       s.store === store && String(s.article) === String(article)
         ? { ...s, pic_comment: comment, pic_status: status }
@@ -50,10 +50,15 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
     setBatchMsg('');
     try {
       const items = Object.values(localChanges);
+      console.log('[BatchSave] sending', items.length, 'items:', JSON.stringify(items));
       const result = await batchSavePicComment(pic, items);
+      console.log('[BatchSave] result:', JSON.stringify(result));
       setLocalChanges({});
-      setBatchMsg(`Đã lưu ${result.saved} mục`);
-      setTimeout(() => setBatchMsg(''), 3000);
+      const msg = result.errors && result.errors.length > 0
+        ? `Lưu ${result.saved}/${result.total}, lỗi: ${result.errors.join(', ')}`
+        : `Đã lưu ${result.saved}/${result.total} mục`;
+      setBatchMsg(msg);
+      setTimeout(() => setBatchMsg(''), 5000);
     } catch (err) {
       setBatchMsg(`Lỗi: ${err.message}`);
     } finally {
