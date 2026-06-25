@@ -1,28 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
-import { fetchPicStocks } from '../api';
+import { useEffect, useState } from 'react';
 import styles from './ProgressDashboard.module.css';
 
-export default function PicProgressView({ pic, onLogout, onViewDetail }) {
-  const [stocks,   setStocks]   = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
+export default function PicProgressView({ pic, stocks, loading, error, onRefresh, onLogout, onViewDetail }) {
   const [expanded, setExpanded] = useState({});
   const [sort,     setSort]     = useState({ col: null, dir: 'asc' });
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await fetchPicStocks(pic);
-      setStocks(data.stocks);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [pic]);
-
-  useEffect(() => { load(); }, [load]);
 
   const groups = buildQlkvGroups(stocks);
 
@@ -73,7 +54,7 @@ export default function PicProgressView({ pic, onLogout, onViewDetail }) {
             <h1 className={styles.headerTitle}>{pic}</h1>
           </div>
           <div className={styles.headerRight}>
-            <button className={styles.refreshBtn} onClick={load} title="Làm mới">
+            <button className={styles.refreshBtn} onClick={onRefresh} title="Làm mới">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M4 4v5h5M20 20v-5h-5" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

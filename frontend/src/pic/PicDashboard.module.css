@@ -167,7 +167,12 @@
 .statBoxPending.statBoxActive { border-color: #fbbc04 !important; box-shadow: 0 0 0 1px #fbbc04; }
 
 .statNum   { font-size: 1.2rem; font-weight: 700; color: #1a1a2e; line-height: 1; }
+.statSlash { font-size: 0.8rem; font-weight: 500; color: #80868b; }
 .statLabel { font-size: 0.68rem; color: #5f6368; font-weight: 500; }
+.statRate  { font-size: 0.72rem; font-weight: 700; color: #1a73e8; line-height: 1; }
+.statBoxReview { background: #e8f0fe; cursor: default; }
+.statBoxReview:hover { border-color: transparent; }
+.statBoxReview:active { transform: none; }
 
 
 /* ═══════════════════════════════════════
@@ -282,6 +287,14 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.filterLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5f6368;
+  padding-right: 0.2rem;
 }
 
 .pfChip {
@@ -348,6 +361,37 @@
 }
 
 /* ── Store group card ── */
+/* QLKV Section header (for GDV/GDM/GDC detail view) */
+.qlkvSectionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a73e8;
+  margin-bottom: 4px;
+}
+.qlkvSectionHeader:hover { background: #d2e3fc; }
+.qlkvSectionArrow { font-size: 11px; width: 14px; flex-shrink: 0; }
+.qlkvSectionRole {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: white;
+  background: #1a73e8;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.qlkvSectionName { flex-shrink: 0; }
+.qlkvSectionStats { font-size: 0.75rem; font-weight: 500; color: #5f6368; margin-left: auto; }
+
 .storeGroup {
   background: white;
   border-radius: 12px;

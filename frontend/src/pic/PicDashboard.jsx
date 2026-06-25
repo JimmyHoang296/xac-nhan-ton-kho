@@ -1,12 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { fetchPicStocks, batchSavePicComment } from '../api';
+import { batchSavePicComment } from '../api';
 import styles from './PicDashboard.module.css';
 
-export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
-  const [stocks, setStocks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default function PicDashboard({ pic, stocks, setStocks, loading, error, onRefresh, onLogout, onSwitchProgress }) {
   const [selectedKey, setSelectedKey] = useState(null);
   const [filter, setFilter] = useState('all');
   const [picStatusFilter, setPicStatusFilter] = useState('all');
@@ -14,29 +11,31 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyPendingStores, setShowOnlyPendingStores] = useState(false);
   const [localChanges, setLocalChanges] = useState({});
+  const originalsRef = useRef({});
   const [batchSaving, setBatchSaving] = useState(false);
   const [batchMsg, setBatchMsg] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await fetchPicStocks(pic);
-      setStocks(data.stocks);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [pic]);
-
-  useEffect(() => { load(); }, [load]);
-
   function handleLocalChange(store, article, comment, status) {
     const key = `${store}-${article}`;
-    setLocalChanges(prev => ({ ...prev, [key]: { store: String(store), article: String(article), comment, pic_status: status } }));
+    if (!originalsRef.current[key]) {
+      const s = stocks.find(s => String(s.store) === String(store) && String(s.article) === String(article));
+      originalsRef.current[key] = { comment: s?.pic_comment || '', status: s?.pic_status || '' };
+    }
+    const orig = originalsRef.current[key];
+    if (comment === orig.comment && status === orig.status) {
+      setLocalChanges(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } else {
+      setLocalChanges(prev => ({
+        ...prev,
+        [key]: { store: String(store), article: String(article), comment, pic_status: status },
+      }));
+    }
     setStocks(prev => prev.map(s =>
-      s.store === store && String(s.article) === String(article)
+      String(s.store) === String(store) && String(s.article) === String(article)
         ? { ...s, pic_comment: comment, pic_status: status }
         : s
     ));
@@ -54,6 +53,7 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
       const result = await batchSavePicComment(pic, items);
       console.log('[BatchSave] result:', JSON.stringify(result));
       setLocalChanges({});
+      originalsRef.current = {};
       const msg = result.errors && result.errors.length > 0
         ? `Lưu ${result.saved}/${result.total}, lỗi: ${result.errors.join(', ')}`
         : `Đã lưu ${result.saved}/${result.total} mục`;
@@ -131,7 +131,12 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
             <h1 className={styles.headerPic}>{pic}</h1>
           </div>
 
-          {!loading && !error && (
+          {!loading && !error && (() => {
+            const reviewed = stocks.filter(s => s.pic_status && s.pic_status !== '').length;
+            const reviewRate = confirmed.length > 0
+              ? Math.round(reviewed / confirmed.length * 100)
+              : 0;
+            return (
             <div className={styles.headerStats}>
               <button
                 className={`${styles.statBox} ${filter === 'all' ? styles.statBoxActive : ''}`}
@@ -154,11 +159,17 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
                 <span className={styles.statNum}>{pending.length}</span>
                 <span className={styles.statLabel}>Chờ XN</span>
               </button>
+              <div className={`${styles.statBox} ${styles.statBoxReview}`}>
+                <span className={styles.statNum}>{reviewed}<span className={styles.statSlash}>/{confirmed.length}</span></span>
+                <span className={styles.statLabel}>Thẩm định</span>
+                <span className={styles.statRate}>{reviewRate}%</span>
+              </div>
             </div>
-          )}
+            );
+          })()}
 
           <div className={styles.headerRight}>
-            <button className={styles.refreshBtn} onClick={load} title="Làm mới">
+            <button className={styles.refreshBtn} onClick={onRefresh} title="Làm mới">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M4 4v5h5M20 20v-5h-5" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -335,7 +346,7 @@ export default function PicDashboard({ pic, onLogout, onSwitchProgress }) {
             <button className={styles.batchBtn} onClick={handleBatchSave} disabled={batchSaving}>
               {batchSaving
                 ? <><span className={styles.spinnerSmall} /> Đang lưu...</>
-                : <>Lưu tất cả ({pendingCount})</>}
+                : <>Lưu {pendingCount} thay đổi</>}
             </button>
           )}
         </div>
@@ -432,13 +443,15 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
     ? Number(stock.counted_stock) - Number(stock.current_stock || 0)
     : null;
 
-  function handleApply() {
-    onLocalChange(stock.store, stock.article, comment, status);
+  function handleStatusChange(val) {
+    setStatus(val);
+    onLocalChange(stock.store, stock.article, comment, val);
   }
 
-  const origComment = stock.pic_comment || '';
-  const origStatus  = stock.pic_status  || '';
-  const hasLocalEdit = comment !== origComment || status !== origStatus;
+  function handleCommentChange(val) {
+    setComment(val);
+    onLocalChange(stock.store, stock.article, val, status);
+  }
 
   return (
     <div className={styles.detailPanelInner}>
@@ -546,11 +559,11 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
           )}
 
           <div className={styles.commentSection}>
-            <label className={styles.commentLabel}>Trạng thái PIC</label>
+            <label className={styles.commentLabel}>PIC thẩm định</label>
             <select
               className={styles.statusSelect}
               value={status}
-              onChange={e => setStatus(e.target.value)}
+              onChange={e => handleStatusChange(e.target.value)}
             >
               {PIC_STATUSES.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -563,18 +576,9 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
               rows={4}
               placeholder="Nhập nhận xét của PIC..."
               value={comment}
-              onChange={e => setComment(e.target.value)}
+              onChange={e => handleCommentChange(e.target.value)}
             />
-            <div className={styles.commentFooter}>
-              {hasUnsaved && <span className={styles.unsavedLabel}>Chưa lưu lên server</span>}
-              <button
-                className={styles.saveBtn}
-                onClick={handleApply}
-                disabled={!hasLocalEdit && hasUnsaved}
-              >
-                Xác nhận
-              </button>
-            </div>
+            {hasUnsaved && <span className={styles.unsavedLabel}>Chưa lưu lên server</span>}
           </div>
         </div>
 
@@ -742,7 +746,7 @@ function downloadExcel(pic, stocks) {
                          ? Number(s.counted_stock) - Number(s.current_stock || 0)
                          : '',
     'Ghi chú NV':      s.note ?? '',
-    'Trạng thái PIC':  PIC_STATUS_LABELS[s.pic_status] ?? s.pic_status ?? '',
+    'PIC thẩm định':   PIC_STATUS_LABELS[s.pic_status] ?? s.pic_status ?? '',
     'Comment PIC':     s.pic_comment ?? '',
     'Khoảng cách (m)': s.location_check ?? '',
     'Thời gian XN':    s.time_stamp ?? '',

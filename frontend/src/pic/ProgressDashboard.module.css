@@ -343,6 +343,53 @@
   text-align: right;
 }
 
+/* ── QLKV Group header (for GDV/GDM/GDC) ── */
+.qlkvGroupHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a73e8;
+  margin-top: 12px;
+}
+.qlkvGroupHeader:first-child { margin-top: 0; }
+.qlkvGroupHeader:hover { background: #d2e3fc; }
+
+.qlkvGroupArrow {
+  font-size: 11px;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.qlkvGroupRole {
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  background: #1a73e8;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.qlkvGroupName {
+  flex-shrink: 0;
+}
+
+.qlkvGroupStats {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5f6368;
+  flex-shrink: 0;
+}
+
 /* ── Spinner ── */
 .spinner {
   width: 28px;

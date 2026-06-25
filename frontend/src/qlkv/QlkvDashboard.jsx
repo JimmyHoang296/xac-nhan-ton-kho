@@ -1,43 +1,43 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { fetchQlkvStocks } from '../api';
 import styles from '../pic/PicDashboard.module.css';
 
-export default function QlkvDashboard({ username, name, onLogout, onSwitchProgress }) {
-  const [stocks, setStocks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+const ROLE_LABELS = { qlkv: 'QLKV', gdv: 'GDV', gdm: 'GDM', gdc: 'GDC' };
+
+export default function QlkvDashboard({ username, name, role, stocks, loading, error, onRefresh, onLogout, onSwitchProgress }) {
   const [selectedKey, setSelectedKey] = useState(null);
   const [filter, setFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await fetchQlkvStocks(username);
-      setStocks(data.stocks);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [username]);
-
-  useEffect(() => { load(); }, [load]);
+  const [qlkvFilter, setQlkvFilter] = useState('all');
+  const [gdvFilter, setGdvFilter] = useState('all');
+  const [gdmFilter, setGdmFilter] = useState('all');
 
   const confirmed = stocks.filter(s => s.counted_stock !== null && s.counted_stock !== '');
   const pending   = stocks.filter(s => s.counted_stock === null || s.counted_stock === '');
 
-  const isConfirmedFn = s => s.counted_stock !== null && s.counted_stock !== '';
-  const byXnFilter = filter === 'confirmed' ? stocks.filter(isConfirmedFn)
-                    : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
-                    : stocks;
+  // Danh sách unique cho filter dropdowns — gdvList phụ thuộc gdmFilter khi GDC
+  const qlkvList = useMemo(() => [...new Set(stocks.map(s => s.qlkv).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [stocks]);
+  const gdmList  = useMemo(() => [...new Set(stocks.map(s => s.gdm).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [stocks]);
+  const gdvList  = useMemo(() => {
+    const src = role === 'gdc' && gdmFilter !== 'all' ? stocks.filter(s => (s.gdm || '') === gdmFilter) : stocks;
+    return [...new Set(src.map(s => s.gdv).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [stocks, role, gdmFilter]);
 
-  const filteredStocks = riskFilter === 'all' ? byXnFilter
-    : riskFilter === 'none' ? byXnFilter.filter(s => !s.risk || String(s.risk).trim() === '')
-    : byXnFilter.filter(s => normalizeRisk(s.risk) === riskFilter);
+  // Pipeline filter
+  const isConfirmedFn = s => s.counted_stock !== null && s.counted_stock !== '';
+  let filtered = filter === 'confirmed' ? stocks.filter(isConfirmedFn)
+               : filter === 'pending'   ? stocks.filter(s => !isConfirmedFn(s))
+               : stocks;
+
+  if (riskFilter !== 'all') {
+    filtered = riskFilter === 'none'
+      ? filtered.filter(s => !s.risk || String(s.risk).trim() === '')
+      : filtered.filter(s => normalizeRisk(s.risk) === riskFilter);
+  }
+  if (qlkvFilter !== 'all') filtered = filtered.filter(s => (s.qlkv || '') === qlkvFilter);
+  if (gdvFilter  !== 'all') filtered = filtered.filter(s => (s.gdv  || '') === gdvFilter);
+  if (gdmFilter  !== 'all') filtered = filtered.filter(s => (s.gdm  || '') === gdmFilter);
 
   const riskCounts = {
     all:  stocks.length,
@@ -47,7 +47,7 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
     thap: stocks.filter(s => normalizeRisk(s.risk) === 'thap').length,
   };
 
-  const byStore = filteredStocks.reduce((acc, s) => {
+  const byStore = filtered.reduce((acc, s) => {
     const key = s.store;
     if (!acc[key]) acc[key] = { store: s.store, store_name: s.store_name, items: [] };
     acc[key].items.push(s);
@@ -55,11 +55,10 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
   }, {});
 
   const displayedGroups = Object.values(byStore).filter(g => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!String(g.store).toLowerCase().includes(q) && !String(g.store_name).toLowerCase().includes(q)) return false;
-    }
-    return true;
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return String(g.store).toLowerCase().includes(q)
+      || String(g.store_name).toLowerCase().includes(q);
   });
 
   const currentSelectedStock = selectedKey
@@ -71,7 +70,7 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.headerLeft}>
-            <p className={styles.headerLabel}>QLKV Dashboard</p>
+            <p className={styles.headerLabel}>{ROLE_LABELS[role] || 'QLKV'} Dashboard</p>
             <h1 className={styles.headerPic}>{name || username}</h1>
           </div>
 
@@ -102,7 +101,7 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
           )}
 
           <div className={styles.headerRight}>
-            <button className={styles.refreshBtn} onClick={load} title="Làm mới">
+            <button className={styles.refreshBtn} onClick={onRefresh} title="Làm mới">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M4 4v5h5M20 20v-5h-5" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -156,6 +155,41 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
                 )}
               </div>
 
+              {/* Role-based filters */}
+              {(role === 'gdc') && gdmList.length > 1 && (
+                <div className={styles.picFilterBar}>
+                  <span className={styles.filterLabel}>GDM:</span>
+                  <button className={`${styles.pfChip} ${gdmFilter === 'all' ? styles.pfChipActive : ''}`}
+                    onClick={() => { setGdmFilter('all'); setGdvFilter('all'); }}>Tất cả</button>
+                  {gdmList.map(n => (
+                    <button key={n} className={`${styles.pfChip} ${gdmFilter === n ? styles.pfChipActive : ''}`}
+                      onClick={() => { setGdmFilter(n); setGdvFilter('all'); }}>{n}</button>
+                  ))}
+                </div>
+              )}
+              {(role === 'gdm' || role === 'gdc') && gdvList.length > 0 && (
+                <div className={styles.picFilterBar}>
+                  <span className={styles.filterLabel}>GDV:</span>
+                  <button className={`${styles.pfChip} ${gdvFilter === 'all' ? styles.pfChipActive : ''}`}
+                    onClick={() => setGdvFilter('all')}>Tất cả</button>
+                  {gdvList.map(n => (
+                    <button key={n} className={`${styles.pfChip} ${gdvFilter === n ? styles.pfChipActive : ''}`}
+                      onClick={() => setGdvFilter(n)}>{n}</button>
+                  ))}
+                </div>
+              )}
+              {(role === 'gdv') && qlkvList.length > 1 && (
+                <div className={styles.picFilterBar}>
+                  <span className={styles.filterLabel}>QLKV:</span>
+                  <button className={`${styles.pfChip} ${qlkvFilter === 'all' ? styles.pfChipActive : ''}`}
+                    onClick={() => setQlkvFilter('all')}>Tất cả</button>
+                  {qlkvList.map(n => (
+                    <button key={n} className={`${styles.pfChip} ${qlkvFilter === n ? styles.pfChipActive : ''}`}
+                      onClick={() => setQlkvFilter(n)}>{n}</button>
+                  ))}
+                </div>
+              )}
+
               {/* Filter chips theo risk */}
               <div className={styles.picFilterBar}>
                 {[
@@ -184,30 +218,7 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
 
               <div className={styles.storeList}>
                 {displayedGroups.map(group => (
-                  <div key={group.store} className={styles.storeGroup}>
-                    <div className={styles.storeHeader}>
-                      <span className={styles.storeCode}>{group.store}</span>
-                      <span className={styles.storeName}>{group.store_name}</span>
-                      <span className={styles.storeBadge}>
-                        {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
-                        /{group.items.length} XN
-                      </span>
-                    </div>
-
-                    {group.items.map(stock => {
-                      const key = `${stock.store}-${stock.article}`;
-                      const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
-                      return (
-                        <StockRow
-                          key={key}
-                          stock={stock}
-                          isConfirmed={isConfirmed}
-                          isSelected={selectedKey === key}
-                          onClick={() => setSelectedKey(key)}
-                        />
-                      );
-                    })}
-                  </div>
+                  <StoreGroup key={group.store} group={group} selectedKey={selectedKey} onSelect={setSelectedKey} />
                 ))}
               </div>
             </>
@@ -219,6 +230,7 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
           {currentSelectedStock ? (
             <DetailPanel
               stock={currentSelectedStock}
+              role={role}
               onBack={() => setSelectedKey(null)}
             />
           ) : (
@@ -232,6 +244,30 @@ export default function QlkvDashboard({ username, name, onLogout, onSwitchProgre
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── StoreGroup ─── */
+function StoreGroup({ group, selectedKey, onSelect }) {
+  return (
+    <div className={styles.storeGroup}>
+      <div className={styles.storeHeader}>
+        <span className={styles.storeCode}>{group.store}</span>
+        <span className={styles.storeName}>{group.store_name}</span>
+        <span className={styles.storeBadge}>
+          {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
+          /{group.items.length} XN
+        </span>
+      </div>
+      {group.items.map(stock => {
+        const key = `${stock.store}-${stock.article}`;
+        const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
+        return (
+          <StockRow key={key} stock={stock} isConfirmed={isConfirmed}
+            isSelected={selectedKey === key} onClick={() => onSelect(key)} />
+        );
+      })}
     </div>
   );
 }
@@ -276,7 +312,6 @@ function StockRow({ stock, isConfirmed, isSelected, onClick }) {
       </div>
       <div className={styles.rowRight}>
         {riskTagEl(stock.risk)}
-        {stock.pic && <span className={styles.metaItem} style={{ fontSize: '11px', color: '#80868b' }}>{stock.pic}</span>}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={styles.chevronRight}>
           <path d="M6 4l4 4-4 4" stroke="#bdc1c6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -285,8 +320,8 @@ function StockRow({ stock, isConfirmed, isSelected, onClick }) {
   );
 }
 
-/* ─── DetailPanel (không có pic_status / pic_comment) ─── */
-function DetailPanel({ stock, onBack }) {
+/* ─── DetailPanel ─── */
+function DetailPanel({ stock, role, onBack }) {
   const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
   const diff = isConfirmed
     ? Number(stock.counted_stock) - Number(stock.current_stock || 0)
@@ -311,22 +346,43 @@ function DetailPanel({ stock, onBack }) {
         <div className={styles.detailStoreRow}>
           <span className={styles.storeCode}>{stock.store}</span>
           <span className={styles.detailStoreName}>{stock.store_name}</span>
-          {stock.pic && <span style={{ fontSize: '12px', color: '#80868b', marginLeft: '8px' }}>PIC: {stock.pic}</span>}
         </div>
 
-        {(stock.cht || stock.qlkv) && (
+        {/* Hierarchy info based on role */}
+        {(role === 'gdv' || role === 'gdm' || role === 'gdc') && (
           <div className={styles.contactStrip}>
-            {stock.cht && (
+            {stock.qlkv && (
               <span className={styles.contactItem}>
-                <span className={styles.contactRole}>CHT</span>
-                <span className={styles.contactName}>{stock.cht}</span>
-                {stock.sdt_cht && (
-                  <a href={viberUrl(stock.sdt_cht)} className={styles.contactPhone}>
-                    💬 {normalizePhone(stock.sdt_cht)}
-                  </a>
-                )}
+                <span className={styles.contactRole}>QLKV</span>
+                <span className={styles.contactName}>{stock.qlkv}</span>
               </span>
             )}
+            {(role === 'gdm' || role === 'gdc') && stock.gdv && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>GDV</span>
+                <span className={styles.contactName}>{stock.gdv}</span>
+              </span>
+            )}
+            {role === 'gdc' && stock.gdm && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>GDM</span>
+                <span className={styles.contactName}>{stock.gdm}</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {stock.cht && (
+          <div className={styles.contactStrip}>
+            <span className={styles.contactItem}>
+              <span className={styles.contactRole}>CHT</span>
+              <span className={styles.contactName}>{stock.cht}</span>
+              {stock.sdt_cht && (
+                <a href={viberUrl(stock.sdt_cht)} className={styles.contactPhone}>
+                  💬 {normalizePhone(stock.sdt_cht)}
+                </a>
+              )}
+            </span>
           </div>
         )}
       </div>
@@ -461,7 +517,8 @@ function downloadExcel(username, stocks) {
   const rows = stocks.map(s => ({
     'CH':           s.store,
     'Tên CH':       s.store_name,
-    'PIC':          s.pic ?? '',
+    'QLKV':         s.qlkv ?? '',
+    'GDV':          s.gdv ?? '',
     'Mã SP':        s.article,
     'Tên SP':       s.article_name,
     'Tồn HT':       s.stock ?? '',

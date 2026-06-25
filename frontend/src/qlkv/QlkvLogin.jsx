@@ -14,7 +14,7 @@ export default function QlkvLogin({ onLogin }) {
     setLoading(true);
     try {
       const data = await qlkvLogin(username.trim());
-      onLogin(data.username, data.name);
+      onLogin(data.username, data.name, data.role);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -32,12 +32,12 @@ export default function QlkvLogin({ onLogin }) {
             <path d="M8 29c0-5.523 4.477-10 10-10s10 4.477 10 10" stroke="white" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
-        <h1 className={styles.title}>QLKV Dashboard</h1>
-        <p className={styles.subtitle}>Nhập username để xem tồn kho khu vực</p>
+        <h1 className={styles.title}>Quản lý tồn kho</h1>
+        <p className={styles.subtitle}>Nhập username để đăng nhập</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.field}>
-            <label className={styles.label}>Username QLKV</label>
+            <label className={styles.label}>Username</label>
             <input
               className={styles.input}
               type="text"
