@@ -44,11 +44,19 @@ export default function CameraCapture({ onCapture, onClose }) {
     const canvas = canvasRef.current;
     if (!video || !canvas || !video.videoWidth || !video.videoHeight) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
+    // Thu nhỏ ảnh để giảm dung lượng upload (tiết kiệm Cloudinary + 3G nhân viên).
+    // Giới hạn cạnh dài tối đa 1280px, giữ tỉ lệ; chất lượng JPEG 0.7.
+    const MAX_EDGE = 1280;
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const scale = Math.min(1, MAX_EDGE / Math.max(vw, vh));
+    canvas.width = Math.round(vw * scale);
+    canvas.height = Math.round(vh * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
     stopCamera();
     onCapture({
       base64: dataUrl.split(',')[1],
