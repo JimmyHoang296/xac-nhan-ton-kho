@@ -588,7 +588,7 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
             {stock.image.split(',').map((url, idx) => (
               <div key={idx} className={styles.imgItem}>
                 <img
-                  src={driveEmbedUrl(url.trim())}
+                  src={imageUrl(url.trim())}
                   alt={`Ảnh ${idx + 1}`}
                   className={styles.confirmImg}
                 />
@@ -774,7 +774,8 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-function driveEmbedUrl(url) {
+function imageUrl(url) {
+  if (url.includes('cloudinary.com') || url.includes('res.cloudinary.com')) return url;
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
   return url;

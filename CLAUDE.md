@@ -1,27 +1,44 @@
-# Stock Confirmation — Xác Nhận Tồn Kho
+﻿# Stock Confirmation — Xác Nhận Tồn Kho
 
-Hệ thống mobile-first để nhân viên cửa hàng xác nhận tồn kho thực tế.
+Hệ thống mobile-first để nhân viên cửa hàng xác nhận tồn kho thực tế, PIC theo dõi & nhận xét, và QLKV giám sát tiến độ.
+
+---
 
 ## Cấu trúc project
 
 ```
-stock-confirmation/
-├── backend/          Google Apps Script (clasp)
-│   ├── Code.js
+xac-nhan-ton-kho/
+├── backend/                      Google Apps Script (clasp)
+│   ├── Code.js                   Toàn bộ logic backend (548 dòng)
 │   └── appsscript.json
-├── frontend/         React + Vite
+├── frontend/                     React 19 + Vite
 │   └── src/
-│       ├── api.js
-│       ├── App.jsx
-│       └── components/
-│           ├── StoreSearch      Nhập mã CH 4 ký tự
-│           ├── StockList        Danh sách sản phẩm (card)
-│           ├── ConfirmModal     Bottom sheet xác nhận
-│           ├── CameraCapture    Camera live (getUserMedia)
-│           └── Toast            Thông báo thành công
-├── test.mjs          Script test API (node test.mjs)
+│       ├── App.jsx               Module nhân viên cửa hàng (Store staff)
+│       ├── api.js                Tất cả hàm gọi API (fetch)
+│       ├── components/           Components dùng chung (Store flow)
+│       │   ├── StoreSearch       Nhập mã CH 4 ký tự
+│       │   ├── StockList         Danh sách sản phẩm (card, 2 nhóm)
+│       │   ├── ConfirmModal      Bottom sheet xác nhận tồn kho + ảnh
+│       │   ├── CameraCapture     Camera live (getUserMedia, tối đa 5 ảnh)
+│       │   └── Toast             Thông báo thành công
+│       ├── pic/                  Module PIC (Product In Charge)
+│       │   ├── PicApp.jsx        Router PIC: login → dashboard / progress
+│       │   ├── PicLogin.jsx      Đăng nhập PIC (pic + password)
+│       │   ├── PicDashboard.jsx  Bảng theo dõi tồn kho, nhận xét batch
+│       │   ├── PicProgressView.jsx  View tiến độ xác nhận theo QLKV
+│       │   └── ProgressDashboard.jsx  Dashboard tổng hợp tiến độ
+│       └── qlkv/                 Module QLKV (Quản lý khu vực)
+│           ├── QlkvApp.jsx       Router QLKV: login → dashboard / progress
+│           ├── QlkvLogin.jsx     Đăng nhập QLKV (username)
+│           ├── QlkvDashboard.jsx Bảng tồn kho theo khu vực, filter risk
+│           └── QlkvProgressView.jsx  View tiến độ xác nhận theo QLKV
+├── test.mjs                      Script test API (node test.mjs)
+├── .clasp.json                   Cấu hình clasp (Script ID)
+├── netlify.toml                  Cấu hình Netlify redirect
 └── CLAUDE.md
 ```
+
+---
 
 ## Backend — Google Apps Script
 
@@ -31,20 +48,59 @@ stock-confirmation/
 
 **Drive folder ảnh:** `https://drive.google.com/drive/folders/11tUqvg52iEOgdSldCiljSOnCE146Hnae`
 
-### Sheet `stocks` — cột dữ liệu
+### Sheets trong Spreadsheet
 
-| Cột | Nguồn |
+#### Sheet `stocks` — dữ liệu tồn kho
+
+| Cột | Nguồn | Mô tả |
+|-----|-------|-------|
+| store | Admin nhập | Mã cửa hàng |
+| store_name | Admin nhập | Tên cửa hàng |
+| article | Admin nhập | Mã sản phẩm |
+| article_name | Admin nhập | Tên sản phẩm |
+| stock_day | Admin nhập | Ngày lấy tồn |
+| stock | Admin nhập | Tồn hệ thống |
+| pic | Admin nhập | Mã PIC phụ trách |
+| risk | Admin nhập | Mức độ rủi ro (cao / tb / thap) |
+| thùng / thung | Admin nhập | Số thùng |
+| current_stock | User nhập | Tồn hiện tại |
+| counted_stock | User nhập | Tồn kiểm kho |
+| note | User nhập | Ghi chú |
+| lat, long | Tự động | GPS lúc submit |
+| stock_check | Tính toán | counted_stock - current_stock |
+| time_stamp | Tự động | Thời điểm submit |
+| location_check | Tính toán | Khoảng cách (m) giữa user và CH (Haversine) |
+| image | Tự động | URL file ảnh trên Drive (nhiều URL cách nhau dấu phẩy) |
+| pic_comment | PIC nhập | Nhận xét của PIC |
+| pic_status | PIC nhập | Trạng thái PIC đánh dấu |
+
+#### Sheet `stores` — danh sách cửa hàng
+
+| Cột | Mô tả |
 |-----|-------|
-| store, store_name, article, article_name, stock_day, stock, pic | Admin nhập |
-| current_stock, counted_stock, note, lat, long | User nhập |
-| stock_check | Tính: `counted_stock - current_stock` |
-| time_stamp | Tự động khi submit |
-| location_check | Khoảng cách (mét) giữa user và CH (Haversine) |
-| image | URL file ảnh trên Drive |
+| store | Mã cửa hàng |
+| store_name | Tên cửa hàng |
+| lat, long | Tọa độ GPS cửa hàng |
+| CHT | Chủ hàng trưởng |
+| SDT CHT | SĐT CHT |
+| QLKV | Tên quản lý khu vực |
+| QLKV id | Username QLKV (dùng cho login) |
+| SDT QLKV | SĐT QLKV |
+| KSTT | Kiểm soát tồn thực |
 
-### Sheet `stores` — cột dữ liệu
+#### Sheet `PIC` — tài khoản PIC
 
-`store`, `store_name`, `lat`, `long`
+| Cột | Mô tả |
+|-----|-------|
+| PIC | Mã PIC (vd: P1) |
+| password | Mật khẩu |
+
+#### Sheet `qlkv` — tài khoản QLKV
+
+| Cột | Mô tả |
+|-----|-------|
+| username | Tên đăng nhập QLKV |
+| name | Tên hiển thị |
 
 ### Cấu trúc thư mục Drive ảnh
 
@@ -52,16 +108,30 @@ stock-confirmation/
 Drive root/
   └── mmdd/           (ngày lấy tồn kho, vd: 0501)
         └── pic_store/ (vd: P1_2011)
-              └── store_article-name_stock_counted.jpg
+              └── store_article-name_stock_counted[_n].jpg
 ```
 
 ### API endpoints
 
-| Method | Params | Mô tả |
+#### GET requests
+
+| Action | Params | Mô tả |
 |--------|--------|-------|
-| GET | `?action=getStores` | Danh sách cửa hàng |
-| GET | `?action=getStocks&store=XXXX` | Tồn kho theo cửa hàng |
-| POST | `{action:"confirm", store, article, current_stock, counted_stock, note, lat, long, image (base64), imageType}` | Xác nhận + upload ảnh |
+| getStores | — | Danh sách cửa hàng |
+| getStocks | store=XXXX | Tồn kho theo cửa hàng (Store flow) |
+| getPicStocks | pic=P1 | Tồn kho theo PIC + thông tin stores, cht, qlkv |
+| getProgress | pic=dunghd hoặc hienbm | Tiến độ xác nhận toàn bộ (chỉ admin) |
+| getQlkvStocks | username=xxx | Tồn kho theo khu vực QLKV |
+
+#### POST requests (JSON body, Content-Type: text/plain để tránh CORS preflight)
+
+| Action | Payload | Mô tả |
+|--------|---------|-------|
+| confirm | {store, article, current_stock, counted_stock, note, lat, long, images:[{base64,type}], image, imageType} | Xác nhận tồn + upload ảnh (tối đa 5 ảnh) |
+| picLogin | {pic, password} | Đăng nhập PIC |
+| savePicComment | {pic, store, article, comment, pic_status} | Lưu nhận xét PIC (single) |
+| batchSavePicComment | {pic, items:[{store, article, comment, pic_status}]} | Lưu nhận xét PIC hàng loạt |
+| qlkvLogin | {username} | Đăng nhập QLKV |
 
 ### Deploy backend
 
@@ -76,11 +146,15 @@ clasp deploy --deploymentId "AKfycbyLl2hJvtLQyoB4aJERmw_Pzd8PPDSrPIEJ_omwJOKTFon
 
 > **Sau mỗi lần redeploy:** vào Apps Script → Deploy → Manage deployments → set **Who has access: Anyone**
 
-## Frontend — React Vite
+---
+
+## Frontend — React 19 + Vite
 
 **URL production:** `https://xac-nhan-ton-kho.netlify.app`
 
 **Netlify site:** `xac-nhan-ton-kho` (ID: `0c4c3c2c-ca38-4a57-86b0-2f8f516c05db`)
+
+**Dependencies chính:** React 19, Vite 8, xlsx (xuất Excel)
 
 ### Biến môi trường
 
@@ -88,6 +162,8 @@ clasp deploy --deploymentId "AKfycbyLl2hJvtLQyoB4aJERmw_Pzd8PPDSrPIEJ_omwJOKTFon
 ```
 VITE_API_URL=https://script.google.com/macros/s/AKfycby_wrjH-.../exec
 ```
+
+> **Lưu ý:** `api.js` đang dùng URL hardcode thay vì import.meta.env.VITE_API_URL. Cần đồng bộ khi thay đổi deployment ID.
 
 ### Deploy frontend
 
@@ -97,16 +173,77 @@ npm run build
 netlify deploy --prod --dir=dist
 ```
 
-### Luồng UX
+### Dev local
 
-1. Nhập mã cửa hàng (4 ký tự) → Kiểm tra
-2. Danh sách sản phẩm chia 2 nhóm: chờ xác nhận / đã xác nhận
-3. Bấm card → bottom sheet:
-   - Nhập tồn hiện tại + tồn kiểm kho (bắt buộc)
-   - Ghi chú (không bắt buộc)
-   - Chụp ảnh (camera trực tiếp, không cho upload từ thư viện)
-   - Bấm Gửi → lấy GPS tại thời điểm submit → gửi lên backend
+```bash
+cd frontend
+npm run dev
+```
 
-### Lưu ý camera
+---
 
-Dùng `getUserMedia` (không dùng `<input capture>`) để đảm bảo chỉ mở camera, không cho chọn ảnh từ thư viện.
+## Luồng UX theo module
+
+### Module Store (App.jsx) — Nhân viên cửa hàng
+
+```
+Nhập mã CH (4 ký tự)
+  → Tải danh sách sản phẩm
+  → Hiển thị 2 nhóm: chờ xác nhận / đã xác nhận
+  → Bấm card → Bottom sheet ConfirmModal:
+      Nhập tồn hiện tại + tồn kiểm kho (bắt buộc)
+      Ghi chú (không bắt buộc)
+      Chụp ảnh (camera trực tiếp, tối đa 5 ảnh)
+      Lấy GPS tại thời điểm Submit
+      → Gửi lên backend → cập nhật UI
+```
+
+### Module PIC (src/pic/) — Product In Charge
+
+```
+Đăng nhập (pic + password)
+  → PicDashboard:
+      Xem toàn bộ tồn kho của PIC phụ trách
+      Filter: tất cả / chờ XN / đã XN / pic_status / risk / search
+      Chỉnh sửa pic_comment + pic_status (local → batch save)
+      Xuất Excel (xlsx)
+  → PicProgressView:
+      Tiến độ xác nhận nhóm theo QLKV
+      Sort theo cột, expand/collapse nhóm
+```
+
+### Module QLKV (src/qlkv/) — Quản lý khu vực
+
+```
+Đăng nhập (username)
+  → QlkvDashboard:
+      Xem tồn kho các CH trong khu vực
+      Filter: tất cả / chờ XN / đã XN / risk (cao/tb/thấp)
+      Tìm kiếm theo CH
+      Xuất Excel (xlsx)
+  → QlkvProgressView:
+      Tiến độ xác nhận theo cửa hàng
+```
+
+---
+
+## Lưu ý kỹ thuật
+
+### Camera
+- Dùng `getUserMedia` (không dùng `<input capture>`) để đảm bảo chỉ mở camera, không cho chọn ảnh từ thư viện.
+- Hỗ trợ tối đa 5 ảnh mỗi lần submit.
+- Ảnh upload dạng base64, backend decode và lưu lên Google Drive.
+
+### CORS với Google Apps Script
+- GAS không hỗ trợ CORS preflight (OPTIONS). Tất cả POST request phải dùng `Content-Type: text/plain` thay vì `application/json`.
+
+### Batch save PIC comment
+- PIC chỉnh sửa nhiều dòng locally → batch save một lần để tránh quota GAS.
+- `localChanges` state lưu các thay đổi chưa sync, `pendingCount` hiển thị badge số dòng chờ lưu.
+
+### GPS & location_check
+- GPS lấy tại thời điểm bấm Gửi (không phải khi mở modal).
+- `location_check` tính bằng công thức Haversine, đơn vị: mét.
+
+### Phân quyền getProgress
+- Chỉ `dunghd` và `hienbm` được phép gọi `getProgress` (hardcode trong backend).

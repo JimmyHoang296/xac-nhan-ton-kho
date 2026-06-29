@@ -1,6 +1,10 @@
 const SPREADSHEET_ID = '1mQX6TXjrxjSP08cQ-sGES__prD0_NM23GcyexcFOc6I';
 const DRIVE_FOLDER_ID = '11tUqvg52iEOgdSldCiljSOnCE146Hnae';
 
+const CLOUDINARY_CLOUD  = 'dy9kmwc6y';
+const CLOUDINARY_KEY    = '325575763856237';
+const CLOUDINARY_SECRET = 'ZEBiYb4slhmipSHvOx5cHfARthM';
+
 function doGet(e) {
   try {
     const action = e.parameter.action;
@@ -175,32 +179,16 @@ function confirmStock(data) {
     ? images.slice(0, 5)
     : (image ? [{ base64: image, type: imageType || 'image/jpeg' }] : []);
 
-  // Upload tất cả ảnh lên Drive
+  // Upload ảnh lên Cloudinary
   const imageUrls = [];
   if (imageList.length > 0) {
-    const root       = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-    const dateFolder = getOrCreateFolder(root, toMmdd(stockDay));
-    const picFolder  = getOrCreateFolder(dateFolder, `${pic || 'nopic'}_${store}`);
-
-    const baseName = [
-      store,
-      String(articleName).replace(/\s+/g, '-'),
-      systemStock,
-      counted_stock
-    ].join('_');
+    const folder = toMmdd(stockDay) + '/' + (pic || 'nopic') + '_' + store;
 
     imageList.forEach(function(img, idx) {
-      const mimeType = img.type || 'image/jpeg';
-      const ext = mimeType.split('/')[1] || 'jpg';
-      const suffix = imageList.length > 1 ? '_' + (idx + 1) : '';
-      const blob = Utilities.newBlob(
-        Utilities.base64Decode(img.base64),
-        mimeType,
-        baseName + suffix + '.' + ext
-      );
-      const file = picFolder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      imageUrls.push(file.getUrl());
+      var suffix = imageList.length > 1 ? '_' + (idx + 1) : '';
+      var publicId = folder + '/' + store + '_' + String(article) + suffix;
+      var url = uploadToCloudinary(img.base64, img.type || 'image/jpeg', publicId);
+      if (url) imageUrls.push(url);
     });
   }
 
@@ -424,6 +412,55 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+// ── Cloudinary upload ─────────────────────────────────────
+
+function uploadToCloudinary(base64Data, mimeType, publicId) {
+  var timestamp = Math.floor(Date.now() / 1000);
+  var paramsToSign = 'folder=xac-nhan-ton-kho&public_id=' + publicId + '&timestamp=' + timestamp;
+  var signature = computeSha1(paramsToSign + CLOUDINARY_SECRET);
+
+  var boundary = '----CloudinaryBoundary' + timestamp;
+  var payload = '';
+  payload += '--' + boundary + '\r\n';
+  payload += 'Content-Disposition: form-data; name="file"\r\n\r\n';
+  payload += 'data:' + mimeType + ';base64,' + base64Data + '\r\n';
+  payload += '--' + boundary + '\r\n';
+  payload += 'Content-Disposition: form-data; name="api_key"\r\n\r\n';
+  payload += CLOUDINARY_KEY + '\r\n';
+  payload += '--' + boundary + '\r\n';
+  payload += 'Content-Disposition: form-data; name="timestamp"\r\n\r\n';
+  payload += timestamp + '\r\n';
+  payload += '--' + boundary + '\r\n';
+  payload += 'Content-Disposition: form-data; name="signature"\r\n\r\n';
+  payload += signature + '\r\n';
+  payload += '--' + boundary + '\r\n';
+  payload += 'Content-Disposition: form-data; name="public_id"\r\n\r\n';
+  payload += publicId + '\r\n';
+  payload += '--' + boundary + '\r\n';
+  payload += 'Content-Disposition: form-data; name="folder"\r\n\r\n';
+  payload += 'xac-nhan-ton-kho\r\n';
+  payload += '--' + boundary + '--\r\n';
+
+  var options = {
+    method: 'post',
+    contentType: 'multipart/form-data; boundary=' + boundary,
+    payload: payload,
+    muteHttpExceptions: true,
+  };
+
+  var res = UrlFetchApp.fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', options);
+  var json = JSON.parse(res.getContentText());
+  return json.secure_url || null;
+}
+
+function computeSha1(input) {
+  var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, input);
+  return raw.map(function(b) {
+    var hex = (b < 0 ? b + 256 : b).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
 }
 
 // ── QLKV functions ────────────────────────────────────────
