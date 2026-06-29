@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { fetchProgress } from '../api';
 import styles from './ProgressDashboard.module.css';
 
@@ -40,8 +40,9 @@ export default function ProgressDashboard({ pic, onLogout }) {
     acc.storesDone += g.storesDone;
     acc.articles   += g.articles;
     acc.artDone    += g.artDone;
+    acc.reviewed   += g.reviewed;
     return acc;
-  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0 });
+  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 });
 
   function togglePic(pic) {
     setExpKstt(prev => ({ ...prev, [pic]: !prev[pic] }));
@@ -92,6 +93,8 @@ export default function ProgressDashboard({ pic, onLogout }) {
             <SummaryCard label="Tổng mã"  value={grandTotal.articles} />
             <SummaryCard label="Mã đã XN" value={grandTotal.artDone}  color="green"
               sub={pct(grandTotal.artDone, grandTotal.articles)} />
+            <SummaryCard label="Đã thẩm định" value={grandTotal.reviewed} color="blue"
+              sub={pct(grandTotal.reviewed, grandTotal.artDone)} />
           </div>
         )}
       </header>
@@ -122,14 +125,16 @@ export default function ProgressDashboard({ pic, onLogout }) {
                   <SortTh col="storesDone" sort={sort} onSort={handleSort} cls={styles.thNum}>CH xong</SortTh>
                   <SortTh col="articles"   sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
                   <SortTh col="artDone"    sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
+                  <SortTh col="reviewed"   sort={sort} onSort={handleSort} cls={styles.thNum}>Đã TĐ</SortTh>
+                  <SortTh col="reviewPct"  sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ TĐ</SortTh>
                   <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
                 </tr>
               </thead>
               <tbody>
                 {sortedGroups.map(picGroup => (
-                  <>
+                  <React.Fragment key={picGroup.pic || '__none__'}>
                     {/* ── PIC row ── */}
-                    <tr key={picGroup.pic} className={styles.ksttRow}
+                    <tr className={styles.ksttRow}
                         onClick={() => togglePic(picGroup.pic)}>
                       <td className={styles.ksttCell}>
                         <span className={styles.chevron}>{expKstt[picGroup.pic] ? '▾' : '▸'}</span>
@@ -146,6 +151,10 @@ export default function ProgressDashboard({ pic, onLogout }) {
                         <span className={isDone(picGroup.artDone, picGroup.articles) ? styles.numDone : ''}>
                           {picGroup.artDone}
                         </span>
+                      </td>
+                      <td className={styles.numCell}>{picGroup.reviewed}</td>
+                      <td className={styles.pctCell}>
+                        <ProgressBar value={picGroup.reviewed} total={picGroup.artDone} color="blue" />
                       </td>
                       <td className={styles.pctCell}>
                         <ProgressBar value={picGroup.artDone} total={picGroup.articles} />
@@ -168,12 +177,16 @@ export default function ProgressDashboard({ pic, onLogout }) {
                             {q.artDone}
                           </span>
                         </td>
+                        <td className={styles.numCell}>{q.reviewed}</td>
+                        <td className={styles.pctCell}>
+                          <ProgressBar value={q.reviewed} total={q.artDone} color="blue" />
+                        </td>
                         <td className={styles.pctCell}>
                           <ProgressBar value={q.artDone} total={q.articles} />
                         </td>
                       </tr>
                     ))}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -187,17 +200,17 @@ export default function ProgressDashboard({ pic, onLogout }) {
 function SummaryCard({ label, value, color, sub }) {
   return (
     <div className={styles.summaryCard}>
-      <span className={`${styles.summaryNum} ${color === 'green' ? styles.summaryNumGreen : ''}`}>{value}</span>
+      <span className={`${styles.summaryNum} ${color === 'green' ? styles.summaryNumGreen : color === 'blue' ? styles.summaryNumBlue : ''}`}>{value}</span>
       <span className={styles.summaryLabel}>{label}</span>
       {sub && <span className={styles.summarySub}>{sub}</span>}
     </div>
   );
 }
 
-function ProgressBar({ value, total }) {
+function ProgressBar({ value, total, color }) {
   if (!total) return <span className={styles.pctText}>—</span>;
   const pctVal = Math.round(value / total * 100);
-  const cls = pctVal === 100 ? styles.barFull : pctVal >= 50 ? styles.barMid : styles.barLow;
+  const cls = color === 'blue' ? styles.barBlue : pctVal === 100 ? styles.barFull : pctVal >= 50 ? styles.barMid : styles.barLow;
   return (
     <div className={styles.barWrap}>
       <div className={styles.barBg}>
@@ -226,9 +239,10 @@ function sortGroups(groups, { col, dir }) {
   const sign = dir === 'asc' ? 1 : -1;
   return [...groups].sort((a, b) => {
     let va, vb;
-    if (col === 'name')       { va = a.pic;        vb = b.pic; }
-    else if (col === 'pct')   { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
-    else                      { va = a[col] ?? 0;  vb = b[col] ?? 0; }
+    if (col === 'name')          { va = a.pic;        vb = b.pic; }
+    else if (col === 'pct')      { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
+    else if (col === 'reviewPct') { va = a.artDone ? a.reviewed / a.artDone : 0; vb = b.artDone ? b.reviewed / b.artDone : 0; }
+    else                         { va = a[col] ?? 0;  vb = b[col] ?? 0; }
     if (typeof va === 'string') return sign * va.localeCompare(vb, 'vi');
     return sign * (va - vb);
   });
@@ -241,27 +255,29 @@ function buildGroups({ stocks, storeMap }) {
   // Per-store: total articles + done + pic
   const storeArt = {};
   stocks.forEach(s => {
-    if (!storeArt[s.store]) storeArt[s.store] = { total: 0, done: 0, pics: new Set() };
+    if (!storeArt[s.store]) storeArt[s.store] = { total: 0, done: 0, reviewed: 0, pics: new Set() };
     storeArt[s.store].total++;
     if (s.counted_stock !== null && s.counted_stock !== '') storeArt[s.store].done++;
+    if (s.pic_status && s.pic_status !== '') storeArt[s.store].reviewed++;
     if (s.pic) storeArt[s.store].pics.add(s.pic);
   });
 
   // Aggregate PIC → QLKV
   const picMap = {};
-  Object.entries(storeArt).forEach(([storeCode, { total, done, pics }]) => {
+  Object.entries(storeArt).forEach(([storeCode, { total, done, reviewed, pics }]) => {
     const info = storeMap[storeCode] || {};
     const qlkv = info.qlkv || 'Chưa phân công';
     const pic  = pics.size > 0 ? [...pics][0] : '';
 
     if (!picMap[pic]) picMap[pic] = {};
-    if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0 };
+    if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 };
 
     const cell = picMap[pic][qlkv];
     cell.stores++;
     if (done === total) cell.storesDone++;
     cell.articles += total;
     cell.artDone  += done;
+    cell.reviewed += reviewed;
   });
 
   return Object.entries(picMap)
@@ -276,8 +292,9 @@ function buildGroups({ stocks, storeMap }) {
         acc.storesDone += q.storesDone;
         acc.articles   += q.articles;
         acc.artDone    += q.artDone;
+        acc.reviewed   += q.reviewed;
         return acc;
-      }, { stores: 0, storesDone: 0, articles: 0, artDone: 0 });
+      }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 });
 
       return { pic, qlkvList, ...tot };
     });

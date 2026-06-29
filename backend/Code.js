@@ -601,6 +601,7 @@ function getProgress() {
       store:         String(get(r, 'store')),
       pic:           String(get(r, 'pic') || ''),
       counted_stock: get(r, 'counted_stock'),
+      pic_status:    get(r, 'pic_status') || '',
     }));
 
   const storesData = ss.getSheetByName('stores').getDataRange().getValues();
