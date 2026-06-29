@@ -105,9 +105,9 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                   <SortTh col="storesDone" sort={sort} onSort={handleSort} cls={styles.thNum}>CH xong</SortTh>
                   <SortTh col="articles"   sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
                   <SortTh col="artDone"    sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
+                  <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ XN</SortTh>
                   <SortTh col="reviewed"   sort={sort} onSort={handleSort} cls={styles.thNum}>Đã TĐ</SortTh>
                   <SortTh col="reviewPct"  sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ TĐ</SortTh>
-                  <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -128,12 +128,12 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                       <td className={styles.numCell}>
                         <span className={isDone(g.artDone, g.articles) ? styles.numDone : ''}>{g.artDone}</span>
                       </td>
+                      <td className={styles.pctCell}>
+                        <ProgressBar value={g.artDone} total={g.articles} color="blue" />
+                      </td>
                       <td className={styles.numCell}>{g.reviewed}</td>
                       <td className={styles.pctCell}>
                         <ProgressBar value={g.reviewed} total={g.artDone} color="blue" />
-                      </td>
-                      <td className={styles.pctCell}>
-                        <ProgressBar value={g.artDone} total={g.articles} />
                       </td>
                     </tr>
 
@@ -150,12 +150,12 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                         <td className={styles.numCell}>
                           <span className={isDone(s.artDone, s.articles) ? styles.numDone : ''}>{s.artDone}</span>
                         </td>
+                        <td className={styles.pctCell}>
+                          <ProgressBar value={s.artDone} total={s.articles} color="blue" />
+                        </td>
                         <td className={styles.numCell}>{s.reviewed}</td>
                         <td className={styles.pctCell}>
                           <ProgressBar value={s.reviewed} total={s.artDone} color="blue" />
-                        </td>
-                        <td className={styles.pctCell}>
-                          <ProgressBar value={s.artDone} total={s.articles} />
                         </td>
                       </tr>
                     ))}

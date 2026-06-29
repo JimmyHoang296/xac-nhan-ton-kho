@@ -125,9 +125,9 @@ export default function ProgressDashboard({ pic, onLogout }) {
                   <SortTh col="storesDone" sort={sort} onSort={handleSort} cls={styles.thNum}>CH xong</SortTh>
                   <SortTh col="articles"   sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
                   <SortTh col="artDone"    sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
+                  <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ XN</SortTh>
                   <SortTh col="reviewed"   sort={sort} onSort={handleSort} cls={styles.thNum}>Đã TĐ</SortTh>
                   <SortTh col="reviewPct"  sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ TĐ</SortTh>
-                  <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -152,12 +152,12 @@ export default function ProgressDashboard({ pic, onLogout }) {
                           {picGroup.artDone}
                         </span>
                       </td>
+                      <td className={styles.pctCell}>
+                        <ProgressBar value={picGroup.artDone} total={picGroup.articles} color="blue" />
+                      </td>
                       <td className={styles.numCell}>{picGroup.reviewed}</td>
                       <td className={styles.pctCell}>
                         <ProgressBar value={picGroup.reviewed} total={picGroup.artDone} color="blue" />
-                      </td>
-                      <td className={styles.pctCell}>
-                        <ProgressBar value={picGroup.artDone} total={picGroup.articles} />
                       </td>
                     </tr>
 
@@ -177,12 +177,12 @@ export default function ProgressDashboard({ pic, onLogout }) {
                             {q.artDone}
                           </span>
                         </td>
+                        <td className={styles.pctCell}>
+                          <ProgressBar value={q.artDone} total={q.articles} color="blue" />
+                        </td>
                         <td className={styles.numCell}>{q.reviewed}</td>
                         <td className={styles.pctCell}>
                           <ProgressBar value={q.reviewed} total={q.artDone} color="blue" />
-                        </td>
-                        <td className={styles.pctCell}>
-                          <ProgressBar value={q.artDone} total={q.articles} />
                         </td>
                       </tr>
                     ))}
