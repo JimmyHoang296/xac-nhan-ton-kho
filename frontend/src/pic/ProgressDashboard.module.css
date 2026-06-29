@@ -131,6 +131,7 @@
   line-height: 1;
 }
 .summaryNumGreen { color: #1e8e3e; }
+.summaryNumBlue  { color: #1a73e8; }
 
 .summaryLabel {
   font-size: 11px;
@@ -334,6 +335,7 @@
 .barLow  { background: #ea4335; }
 .barMid  { background: #fbbc04; }
 .barFull { background: #34a853; }
+.barBlue { background: #1a73e8; }
 
 .pctText {
   font-size: 12px;
