@@ -92,10 +92,11 @@ export default function PicDashboard({ pic, stocks, setStocks, loading, error, o
 
   const riskCounts = {
     all:  stocks.length,
-    none: stocks.filter(s => !s.risk || String(s.risk).trim() === '').length,
-    cao:  stocks.filter(s => normalizeRisk(s.risk) === 'cao').length,
-    tb:   stocks.filter(s => normalizeRisk(s.risk) === 'tb').length,
-    thap: stocks.filter(s => normalizeRisk(s.risk) === 'thap').length,
+    none:   stocks.filter(s => !s.risk || String(s.risk).trim() === '').length,
+    ratcao: stocks.filter(s => normalizeRisk(s.risk) === 'ratcao').length,
+    cao:    stocks.filter(s => normalizeRisk(s.risk) === 'cao').length,
+    tb:     stocks.filter(s => normalizeRisk(s.risk) === 'tb').length,
+    thap:   stocks.filter(s => normalizeRisk(s.risk) === 'thap').length,
   };
 
   const byStore = filteredStocks.reduce((acc, s) => {
@@ -261,10 +262,11 @@ export default function PicDashboard({ pic, stocks, setStocks, loading, error, o
               {/* Filter chips theo risk */}
               <div className={styles.picFilterBar}>
                 {[
-                  { key: 'all',  label: 'Risk: Tất cả', cls: '' },
-                  { key: 'cao',  label: 'Cao',           cls: styles.rfHigh },
-                  { key: 'tb',   label: 'Trung bình',    cls: styles.rfMedium },
-                  { key: 'thap', label: 'Thấp',          cls: styles.rfLow },
+                  { key: 'all',    label: 'Risk: Tất cả', cls: '' },
+                  { key: 'ratcao', label: 'Rất cao',      cls: styles.rfVeryHigh },
+                  { key: 'cao',    label: 'Cao',          cls: styles.rfHigh },
+                  { key: 'tb',     label: 'Trung bình',   cls: styles.rfMedium },
+                  { key: 'thap',   label: 'Thấp',         cls: styles.rfLow },
                   { key: 'none', label: 'Chưa set',      cls: styles.pfNone },
                 ].map(({ key, label, cls }) => (
                   <button
@@ -607,6 +609,7 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
 function normalizeRisk(risk) {
   if (!risk) return '';
   const r = String(risk).toLowerCase().trim();
+  if (r === 'rất cao' || r === 'rat cao' || r === 'ratcao') return 'ratcao';
   if (r === 'cao') return 'cao';
   if (r === 'trung bình' || r === 'trung binh' || r === 'tb') return 'tb';
   if (r === 'thấp' || r === 'thap') return 'thap';
@@ -617,7 +620,8 @@ function normalizeRisk(risk) {
 function riskTagEl(risk) {
   if (!risk) return null;
   const r = String(risk).toLowerCase().trim();
-  const cls = r === 'cao' ? styles.riskHigh
+  const cls = (r === 'rất cao' || r === 'rat cao' || r === 'ratcao') ? styles.riskVeryHigh
+    : r === 'cao' ? styles.riskHigh
     : (r === 'trung bình' || r === 'trung binh' || r === 'tb') ? styles.riskMedium
     : (r === 'thấp' || r === 'thap') ? styles.riskLow
     : null;

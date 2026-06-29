@@ -342,6 +342,8 @@
 .pfNone.pfChipActive             { background: #f1f3f4; border-color: #5f6368; }
 
 /* Risk filter chips */
+.rfVeryHigh { border-color: #a50e0e; color: #a50e0e; }
+.rfVeryHigh .pfCount { background: #a50e0e; color: #fff; }
 .rfHigh   { border-color: #ea4335; color: #c5221f; }
 .rfHigh   .pfCount { background: #fce8e6; color: #c5221f; }
 .rfMedium { border-color: #fbbc04; color: #e37400; }
@@ -349,6 +351,7 @@
 .rfLow    { border-color: #34a853; color: #137333; }
 .rfLow    .pfCount { background: #e6f4ea; color: #137333; }
 
+.rfVeryHigh.pfChipActive { background: #fce8e6; border-color: #a50e0e; }
 .rfHigh.pfChipActive   { background: #fce8e6; border-color: #ea4335; }
 .rfMedium.pfChipActive { background: #fef7e0; border-color: #fbbc04; }
 .rfLow.pfChipActive    { background: #e6f4ea; border-color: #34a853; }
@@ -877,6 +880,7 @@
   letter-spacing: 0.03em;
   flex-shrink: 0;
 }
+.riskVeryHigh { background: #a50e0e; color: #fff; }
 .riskHigh   { background: #fce8e6; color: #c5221f; }
 .riskMedium { background: #fef7e0; color: #e37400; }
 .riskLow    { background: #e6f4ea; color: #137333; }

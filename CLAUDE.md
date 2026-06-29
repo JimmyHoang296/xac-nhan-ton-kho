@@ -82,7 +82,7 @@ xac-nhan-ton-kho/
 | stock_day | Admin nạp | Ngày lấy tồn |
 | stock | Admin nạp | Tồn hệ thống |
 | pic | Admin nạp | Mã PIC phụ trách |
-| risk | Admin nạp | Mức độ rủi ro (cao / tb / thap) |
+| risk | Admin nạp | Mức độ rủi ro (rất cao / cao / tb / thap) |
 | thung | Admin nạp | Số thùng (Excel: cột `thùng`) |
 | current_stock | User nhập | Tồn hiện tại |
 | counted_stock | User nhập | Tồn kiểm kho |
