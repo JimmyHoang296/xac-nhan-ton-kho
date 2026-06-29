@@ -64,6 +64,8 @@ export default function ConfirmModal({ stock, storeCode, onClose, onSuccess }) {
       await submitConfirmation({
         store: storeCode,
         article: stock.article,
+        stock_day: stock.stock_day,
+        pic: stock.pic,
         current_stock: currentStock === '' ? '' : Number(currentStock),
         counted_stock: Number(countedStock),
         note,

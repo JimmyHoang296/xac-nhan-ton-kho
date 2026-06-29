@@ -1,6 +1,10 @@
-﻿# Stock Confirmation — Xác Nhận Tồn Kho
+# Stock Confirmation — Xác Nhận Tồn Kho
 
 Hệ thống mobile-first để nhân viên cửa hàng xác nhận tồn kho thực tế, PIC theo dõi & nhận xét, và QLKV giám sát tiến độ.
+
+> **Kiến trúc hiện tại:** Frontend React kết nối **trực tiếp Supabase Postgres** qua `supabase-js`
+> (anon key + RLS), gọi các **RPC function** thay cho backend. Ảnh upload thẳng lên **Cloudinary**
+> (unsigned preset). Backend Google Apps Script trong `backend/` **chỉ còn giữ làm backup/legacy**.
 
 ---
 
@@ -8,13 +12,17 @@ Hệ thống mobile-first để nhân viên cửa hàng xác nhận tồn kho th
 
 ```
 xac-nhan-ton-kho/
-├── backend/                      Google Apps Script (clasp)
-│   ├── Code.js                   Toàn bộ logic backend (548 dòng)
+├── supabase/
+│   └── schema.sql                Toàn bộ schema: bảng + RLS + RPC + admin RPC (chạy trong SQL Editor)
+├── backend/                      [LEGACY] Google Apps Script cũ — giữ làm backup, không còn dùng
+│   ├── Code.js
 │   └── appsscript.json
 ├── frontend/                     React 19 + Vite
 │   └── src/
+│       ├── main.jsx              Router theo path: / · /pic · /qlkv · /admin
+│       ├── supabaseClient.js     Khởi tạo supabase-js + biến Cloudinary (từ import.meta.env)
+│       ├── api.js                Tất cả hàm gọi API qua supabase.rpc() + upload Cloudinary
 │       ├── App.jsx               Module nhân viên cửa hàng (Store staff)
-│       ├── api.js                Tất cả hàm gọi API (fetch)
 │       ├── components/           Components dùng chung (Store flow)
 │       │   ├── StoreSearch       Nhập mã CH 4 ký tự
 │       │   ├── StockList         Danh sách sản phẩm (card, 2 nhóm)
@@ -27,124 +35,116 @@ xac-nhan-ton-kho/
 │       │   ├── PicDashboard.jsx  Bảng theo dõi tồn kho, nhận xét batch
 │       │   ├── PicProgressView.jsx  View tiến độ xác nhận theo QLKV
 │       │   └── ProgressDashboard.jsx  Dashboard tổng hợp tiến độ
-│       └── qlkv/                 Module QLKV (Quản lý khu vực)
-│           ├── QlkvApp.jsx       Router QLKV: login → dashboard / progress
-│           ├── QlkvLogin.jsx     Đăng nhập QLKV (username)
-│           ├── QlkvDashboard.jsx Bảng tồn kho theo khu vực, filter risk
-│           └── QlkvProgressView.jsx  View tiến độ xác nhận theo QLKV
-├── test.mjs                      Script test API (node test.mjs)
-├── .clasp.json                   Cấu hình clasp (Script ID)
-├── netlify.toml                  Cấu hình Netlify redirect
+│       ├── qlkv/                 Module QLKV (Quản lý khu vực)
+│       │   ├── QlkvApp.jsx       Router QLKV: login → dashboard / progress
+│       │   ├── QlkvLogin.jsx     Đăng nhập QLKV (username)
+│       │   ├── QlkvDashboard.jsx Bảng tồn kho theo khu vực, filter risk
+│       │   └── QlkvProgressView.jsx  View tiến độ xác nhận theo QLKV
+│       └── admin/               Module Admin (export/import Excel hàng tuần)
+│           ├── AdminApp.jsx      Đăng nhập admin (mật khẩu trong app_config)
+│           ├── AdminPanel.jsx    Tải Excel + nạp Excel thay thế toàn bộ bảng
+│           └── columnMap.js      Map tiêu đề cột Excel ↔ tên cột DB
+├── frontend/test-supabase.mjs    Script test RPC Supabase (node test-supabase.mjs)
+├── test.mjs                      [LEGACY] Script test API GAS cũ
+├── netlify.toml                  Cấu hình Netlify (SPA redirect /* → /index.html)
 └── CLAUDE.md
 ```
 
 ---
 
-## Backend — Google Apps Script
+## Backend — Supabase
 
-**Script ID:** `1bXUbjmKEMnXGBEhp5Dz5SE256F9jGrTE2Yqd9Gyiiav95NE7qv74saNR`
+**Project URL / anon key / Cloudinary preset:** đặt trong `frontend/.env` (xem mục Biến môi trường).
 
-**Spreadsheet:** `https://docs.google.com/spreadsheets/d/1mQX6TXjrxjSP08cQ-sGES__prD0_NM23GcyexcFOc6I`
+**Toàn bộ schema** nằm trong [supabase/schema.sql](supabase/schema.sql) — chạy 1 lần trong
+**Supabase ▸ SQL Editor**. File này tạo bảng, bật RLS, và định nghĩa mọi RPC.
 
-**Drive folder ảnh:** `https://drive.google.com/drive/folders/11tUqvg52iEOgdSldCiljSOnCE146Hnae`
+### Nguyên tắc bảo mật
 
-### Sheets trong Spreadsheet
+- Mọi cột để kiểu **`text`** (mirror Google Sheets — giúp import/export Excel round-trip không lỗi ép kiểu;
+  RPC tự cast khi cần qua hàm `num()`).
+- Bật **RLS** trên mọi bảng, **không cấp policy** cho `anon` → không thể SELECT/UPDATE thẳng bảng.
+- Mọi truy cập đi qua **RPC `SECURITY DEFINER`** (chạy bằng quyền owner, bỏ qua RLS) và chỉ trả về
+  đúng cột cần thiết. Role `anon` chỉ được `GRANT EXECUTE` các RPC.
+- **Tuyệt đối không** đưa `service_role` key vào frontend. Trang Admin dùng cổng mật khẩu
+  (`app_config.admin_password`) kiểm tra bên trong RPC.
 
-#### Sheet `stocks` — dữ liệu tồn kho
+### Bảng
+
+#### `stocks` — dữ liệu tồn kho
 
 | Cột | Nguồn | Mô tả |
 |-----|-------|-------|
-| store | Admin nhập | Mã cửa hàng |
-| store_name | Admin nhập | Tên cửa hàng |
-| article | Admin nhập | Mã sản phẩm |
-| article_name | Admin nhập | Tên sản phẩm |
-| stock_day | Admin nhập | Ngày lấy tồn |
-| stock | Admin nhập | Tồn hệ thống |
-| pic | Admin nhập | Mã PIC phụ trách |
-| risk | Admin nhập | Mức độ rủi ro (cao / tb / thap) |
-| thùng / thung | Admin nhập | Số thùng |
+| store | Admin nạp | Mã cửa hàng |
+| store_name | Admin nạp | Tên cửa hàng |
+| article | Admin nạp | Mã sản phẩm |
+| article_name | Admin nạp | Tên sản phẩm |
+| stock_day | Admin nạp | Ngày lấy tồn |
+| stock | Admin nạp | Tồn hệ thống |
+| pic | Admin nạp | Mã PIC phụ trách |
+| risk | Admin nạp | Mức độ rủi ro (cao / tb / thap) |
+| thung | Admin nạp | Số thùng (Excel: cột `thùng`) |
 | current_stock | User nhập | Tồn hiện tại |
 | counted_stock | User nhập | Tồn kiểm kho |
 | note | User nhập | Ghi chú |
 | lat, long | Tự động | GPS lúc submit |
-| stock_check | Tính toán | counted_stock - current_stock |
-| time_stamp | Tự động | Thời điểm submit |
+| stock_check | Tính toán | counted_stock − current_stock |
+| time_stamp | Tự động | Thời điểm submit (giờ VN) |
 | location_check | Tính toán | Khoảng cách (m) giữa user và CH (Haversine) |
-| image | Tự động | URL file ảnh trên Drive (nhiều URL cách nhau dấu phẩy) |
+| image | Tự động | URL ảnh Cloudinary (nhiều URL cách nhau dấu phẩy) |
 | pic_comment | PIC nhập | Nhận xét của PIC |
 | pic_status | PIC nhập | Trạng thái PIC đánh dấu |
 
-#### Sheet `stores` — danh sách cửa hàng
+Index: `stocks(store)`, `stocks(pic)`, `stocks(store, article)`.
 
-| Cột | Mô tả |
-|-----|-------|
-| store | Mã cửa hàng |
-| store_name | Tên cửa hàng |
-| lat, long | Tọa độ GPS cửa hàng |
-| CHT | Chủ hàng trưởng |
-| SDT CHT | SĐT CHT |
-| QLKV | Tên quản lý khu vực |
-| QLKV id | Username QLKV (dùng cho login) |
-| SDT QLKV | SĐT QLKV |
-| KSTT | Kiểm soát tồn thực |
+#### `stores` — danh sách cửa hàng
 
-#### Sheet `PIC` — tài khoản PIC
+Cột DB (snake_case) ↔ tiêu đề Excel: `store`, `store_name`, `lat`, `long`, `cht`(CHT),
+`sdt_cht`(SDT CHT), `qlkv`(QLKV), `qlkv_id`(QLKV id — username login QLKV), `sdt_qlkv`(SDT QLKV),
+`kstt`(KSTT), `gdv`/`gdv_id`(GDV/GDV id), `gdm`/`gdm_id`, `gdc`/`gdc_id`.
 
-| Cột | Mô tả |
-|-----|-------|
-| PIC | Mã PIC (vd: P1) |
-| password | Mật khẩu |
+#### `pic` — tài khoản PIC
 
-#### Sheet `qlkv` — tài khoản QLKV
+`pic` (Excel: PIC), `password`.
 
-| Cột | Mô tả |
-|-----|-------|
-| username | Tên đăng nhập QLKV |
-| name | Tên hiển thị |
+#### `qlkv` — tài khoản QLKV
 
-### Cấu trúc thư mục Drive ảnh
+`username`, `name`, `role` (rỗng → mặc định `qlkv`; các giá trị: `qlkv`/`gdv`/`gdm`/`gdc` quyết định cột id dùng để lọc store).
 
-```
-Drive root/
-  └── mmdd/           (ngày lấy tồn kho, vd: 0501)
-        └── pic_store/ (vd: P1_2011)
-              └── store_article-name_stock_counted[_n].jpg
-```
+#### `app_config` — cấu hình
 
-### API endpoints
+`key`, `value`. Có sẵn dòng `admin_password` (mặc định `changeme` — **đổi sau khi chạy schema**).
 
-#### GET requests
+### RPC functions
 
-| Action | Params | Mô tả |
-|--------|--------|-------|
-| getStores | — | Danh sách cửa hàng |
-| getStocks | store=XXXX | Tồn kho theo cửa hàng (Store flow) |
-| getPicStocks | pic=P1 | Tồn kho theo PIC + thông tin stores, cht, qlkv |
-| getProgress | pic=dunghd hoặc hienbm | Tiến độ xác nhận toàn bộ (chỉ admin) |
-| getQlkvStocks | username=xxx | Tồn kho theo khu vực QLKV |
+> `api.js` gọi qua `supabase.rpc(name, params)`. Mọi RPC trả `jsonb`; lỗi trả `{ error: "..." }`.
 
-#### POST requests (JSON body, Content-Type: text/plain để tránh CORS preflight)
+| RPC | Params | Thay cho | Trả về |
+|-----|--------|----------|--------|
+| `get_stores()` | — | getStores | `{ stores:[{store,store_name,lat,long}] }` |
+| `get_stocks_by_store(p_store)` | store | getStocks | `{ store, store_name, stocks:[...] }` |
+| `get_pic_stocks(p_pic)` | pic | getPicStocks | `{ pic, stocks:[... + thông tin store] }` |
+| `get_qlkv_stocks(p_username)` | username | getQlkvStocks | `{ username, role, stocks:[...] }` (lọc store theo role/id) |
+| `get_progress()` | — | getProgress | `{ stocks:[...], storeMap:{...} }` |
+| `pic_login(p_pic, p_password)` | | picLogin | `{ success, pic }` / `{ error }` |
+| `qlkv_login(p_username)` | | qlkvLogin | `{ success, username, name, role }` |
+| `confirm_stock(p_store, p_article, p_current_stock, p_counted_stock, p_note, p_lat, p_long, p_image_urls)` | | confirm | `{ success, imageUrls, location_check }` |
+| `save_pic_comment(p_pic, p_store, p_article, p_comment, p_pic_status)` | | savePicComment | `{ success }` |
+| `batch_save_pic_comment(p_pic, p_items)` | items: jsonb[] | batchSavePicComment | `{ success, saved, total, errors }` |
+| `admin_check(p_password)` | | — | `boolean` (xác thực mật khẩu admin) |
+| `admin_export_all(p_password)` | | — | `{ stocks, stores, pic, qlkv }` (full row) |
+| `admin_replace_table(p_password, p_table, p_rows)` | | — | `{ success, table, inserted }` (TRUNCATE + insert) |
 
-| Action | Payload | Mô tả |
-|--------|---------|-------|
-| confirm | {store, article, current_stock, counted_stock, note, lat, long, images:[{base64,type}], image, imageType} | Xác nhận tồn + upload ảnh (tối đa 5 ảnh) |
-| picLogin | {pic, password} | Đăng nhập PIC |
-| savePicComment | {pic, store, article, comment, pic_status} | Lưu nhận xét PIC (single) |
-| batchSavePicComment | {pic, items:[{store, article, comment, pic_status}]} | Lưu nhận xét PIC hàng loạt |
-| qlkvLogin | {username} | Đăng nhập QLKV |
+Hàm phụ trong SQL: `num(text)` (ép số an toàn), `haversine_m(...)` (khoảng cách mét).
 
-### Deploy backend
+### Ảnh — Cloudinary (unsigned upload)
 
-```bash
-# Push code
-clasp push --force
-
-# Redeploy (cần làm sau mỗi lần push để web app nhận code mới)
-clasp deploy --deploymentId "AKfycby_wrjH-cPUrNbMKVrhNqBEODHni-MPw83XIst_2altOMbKSjR7gagL5KLgZHFW-AHyUA"
-clasp deploy --deploymentId "AKfycbyLl2hJvtLQyoB4aJERmw_Pzd8PPDSrPIEJ_omwJOKTFonEOzm77V7XYc1wuPqufIG1_A"
-```
-
-> **Sau mỗi lần redeploy:** vào Apps Script → Deploy → Manage deployments → set **Who has access: Anyone**
+- `confirm_stock` **không** xử lý ảnh. Trình duyệt upload ảnh thẳng lên Cloudinary qua **unsigned upload
+  preset** (`uploadToCloudinary` trong [frontend/src/api.js](frontend/src/api.js)), rồi truyền mảng
+  `secure_url` vào `confirm_stock` (`p_image_urls`).
+- `public_id` ảnh giữ cấu trúc cũ: `mmdd/pic_store/store_article[_n]` (vd `0501/P1_2011/2011_<article>_2`).
+- Thiết lập preset 1 lần: Cloudinary ▸ Settings ▸ Upload ▸ Add upload preset → **Signing mode = Unsigned**,
+  root folder `xac-nhan-ton-kho`, cho phép `public_id`. Tên preset đặt vào `VITE_CLOUDINARY_UPLOAD_PRESET`.
 
 ---
 
@@ -154,16 +154,22 @@ clasp deploy --deploymentId "AKfycbyLl2hJvtLQyoB4aJERmw_Pzd8PPDSrPIEJ_omwJOKTFon
 
 **Netlify site:** `xac-nhan-ton-kho` (ID: `0c4c3c2c-ca38-4a57-86b0-2f8f516c05db`)
 
-**Dependencies chính:** React 19, Vite 8, xlsx (xuất Excel)
+**Dependencies chính:** React 19, Vite 8, `@supabase/supabase-js`, `xlsx` (export/import Excel).
+
+### Routing (main.jsx)
+
+Theo `window.location.pathname`: `/pic` → PicApp · `/qlkv` → QlkvApp · `/admin` → AdminApp · còn lại → App (Store).
+`netlify.toml` đã redirect `/* → /index.html` (SPA) nên mọi path load được.
 
 ### Biến môi trường
 
-`frontend/.env`:
+`frontend/.env` (và Netlify env — xem mẫu `frontend/.env.example`):
 ```
-VITE_API_URL=https://script.google.com/macros/s/AKfycby_wrjH-.../exec
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=...
+VITE_CLOUDINARY_CLOUD=dy9kmwc6y
+VITE_CLOUDINARY_UPLOAD_PRESET=...
 ```
-
-> **Lưu ý:** `api.js` đang dùng URL hardcode thay vì import.meta.env.VITE_API_URL. Cần đồng bộ khi thay đổi deployment ID.
 
 ### Deploy frontend
 
@@ -173,11 +179,20 @@ npm run build
 netlify deploy --prod --dir=dist
 ```
 
+> Sau khi đổi `.env`: nhớ cập nhật cùng các biến trên **Netlify ▸ Site settings ▸ Environment variables**.
+
 ### Dev local
 
 ```bash
 cd frontend
 npm run dev
+```
+
+### Test backend
+
+```bash
+cd frontend
+node test-supabase.mjs    # gọi vài RPC, kiểm tra dữ liệu + RLS chặn đọc thẳng bảng pic
 ```
 
 ---
@@ -188,62 +203,66 @@ npm run dev
 
 ```
 Nhập mã CH (4 ký tự)
-  → Tải danh sách sản phẩm
+  → Tải danh sách sản phẩm (get_stocks_by_store — cần CH có trong bảng stores)
   → Hiển thị 2 nhóm: chờ xác nhận / đã xác nhận
-  → Bấm card → Bottom sheet ConfirmModal:
+  → Bấm card → ConfirmModal:
       Nhập tồn hiện tại + tồn kiểm kho (bắt buộc)
-      Ghi chú (không bắt buộc)
-      Chụp ảnh (camera trực tiếp, tối đa 5 ảnh)
+      Ghi chú (không bắt buộc) · Chụp ảnh (camera, tối đa 5 ảnh)
       Lấy GPS tại thời điểm Submit
-      → Gửi lên backend → cập nhật UI
+      → Upload ảnh lên Cloudinary → confirm_stock → cập nhật UI
 ```
 
 ### Module PIC (src/pic/) — Product In Charge
 
 ```
 Đăng nhập (pic + password)
-  → PicDashboard:
-      Xem toàn bộ tồn kho của PIC phụ trách
-      Filter: tất cả / chờ XN / đã XN / pic_status / risk / search
-      Chỉnh sửa pic_comment + pic_status (local → batch save)
-      Xuất Excel (xlsx)
-  → PicProgressView:
-      Tiến độ xác nhận nhóm theo QLKV
-      Sort theo cột, expand/collapse nhóm
+  → PicDashboard: xem tồn kho PIC phụ trách, filter, sửa pic_comment/pic_status (batch save), xuất Excel
+  → PicProgressView: tiến độ xác nhận nhóm theo QLKV, sort, expand/collapse
 ```
 
 ### Module QLKV (src/qlkv/) — Quản lý khu vực
 
 ```
-Đăng nhập (username)
-  → QlkvDashboard:
-      Xem tồn kho các CH trong khu vực
-      Filter: tất cả / chờ XN / đã XN / risk (cao/tb/thấp)
-      Tìm kiếm theo CH
-      Xuất Excel (xlsx)
-  → QlkvProgressView:
-      Tiến độ xác nhận theo cửa hàng
+Đăng nhập (username) — role quyết định cột id lọc store (qlkv_id/gdv_id/gdm_id/gdc_id)
+  → QlkvDashboard: tồn kho các CH trong khu vực, filter risk, tìm kiếm, xuất Excel
+  → QlkvProgressView: tiến độ xác nhận theo cửa hàng
 ```
+
+### Module Admin (src/admin/) — Quản trị dữ liệu hàng tuần
+
+```
+Đăng nhập (mật khẩu admin)
+  → AdminPanel:
+      1. Tải Excel: admin_export_all → workbook 4 sheet (stocks/stores/PIC/qlkv)
+      2. Nạp Excel: đọc file → mỗi sheet THAY THẾ TOÀN BỘ bảng (admin_replace_table → TRUNCATE + insert)
+```
+
+**Quy trình hàng tuần:** Tải Excel sao lưu → chỉnh dữ liệu tồn kho mới → nạp lại (thay thế bảng `stocks`).
+**Migration lần đầu:** tải Google Sheet cũ ra `.xlsx` (đủ 4 sheet) → vào `/admin` → nạp từng bảng.
 
 ---
 
 ## Lưu ý kỹ thuật
 
 ### Camera
-- Dùng `getUserMedia` (không dùng `<input capture>`) để đảm bảo chỉ mở camera, không cho chọn ảnh từ thư viện.
-- Hỗ trợ tối đa 5 ảnh mỗi lần submit.
-- Ảnh upload dạng base64, backend decode và lưu lên Google Drive.
-
-### CORS với Google Apps Script
-- GAS không hỗ trợ CORS preflight (OPTIONS). Tất cả POST request phải dùng `Content-Type: text/plain` thay vì `application/json`.
-
-### Batch save PIC comment
-- PIC chỉnh sửa nhiều dòng locally → batch save một lần để tránh quota GAS.
-- `localChanges` state lưu các thay đổi chưa sync, `pendingCount` hiển thị badge số dòng chờ lưu.
+- Dùng `getUserMedia` (không dùng `<input capture>`) để chỉ mở camera, không cho chọn ảnh từ thư viện.
+- Tối đa 5 ảnh/lần submit; ảnh dạng base64 → upload thẳng Cloudinary từ trình duyệt.
 
 ### GPS & location_check
 - GPS lấy tại thời điểm bấm Gửi (không phải khi mở modal).
-- `location_check` tính bằng công thức Haversine, đơn vị: mét.
+- `location_check` tính bằng Haversine (`haversine_m` trong SQL), đơn vị mét.
 
-### Phân quyền getProgress
-- Chỉ `dunghd` và `hienbm` được phép gọi `getProgress` (hardcode trong backend).
+### Batch save PIC comment
+- PIC chỉnh sửa nhiều dòng locally → `batch_save_pic_comment` một lần (giảm số round-trip).
+- `localChanges` lưu thay đổi chưa sync, badge `pendingCount` hiển thị số dòng chờ lưu.
+
+### Phụ thuộc bảng stores
+- `get_stocks_by_store` (và `confirm_stock`) tra cứu CH trong bảng `stores` trước. Nếu chưa nạp `stores`,
+  Store flow báo `"Store not found"` dù `stocks` đã có dữ liệu → **nhớ nạp đủ cả 4 bảng** khi migration.
+
+### Nạp Excel thay thế toàn bộ
+- `admin_replace_table` chạy `TRUNCATE` rồi insert → **xoá hết dữ liệu cũ** của bảng (kể cả các cột
+  người dùng đã nhập: counted_stock, ảnh, pic_comment…). Luôn **tải Excel sao lưu trước khi nạp**.
+- Tiêu đề cột trong Excel ↔ cột DB được map ở [columnMap.js](frontend/src/admin/columnMap.js) (chấp nhận
+  cả tên tiếng Việt lẫn tên cột DB). Nếu file Excel có tiêu đề khác → cập nhật map này.
+
