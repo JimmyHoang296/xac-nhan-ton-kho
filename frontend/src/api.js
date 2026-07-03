@@ -1,4 +1,6 @@
-import { supabase, CLOUDINARY_CLOUD, CLOUDINARY_PRESET } from './supabaseClient';
+import { supabase } from './supabaseClient';
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPE_f3Mn17IhGLZjL45q9GSqU3vAy7JKlHLlhhdapiTnFKv3jIpymbYQipoj04ysMX/exec';
 
 // Gọi RPC Supabase và chuẩn hoá lỗi giống cách cũ (throw Error để UI hiển thị).
 async function rpc(name, params) {
@@ -43,31 +45,18 @@ export async function batchSavePicComment(pic, items) {
   return rpc('batch_save_pic_comment', { p_pic: pic, p_items: items });
 }
 
-// ── Cloudinary unsigned upload ──────────────────────────────────────────────
+// ── Google Drive upload (qua GAS) ───────────────────────────────────────────
 
-// stock_day → "mmdd" (vd "0501"); khớp toMmdd cũ trong backend
-function toMmdd(dateVal) {
-  const d = new Date(dateVal);
-  if (isNaN(d.getTime())) return 'nodate';
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return mm + dd;
-}
-
-async function uploadToCloudinary(base64, type, publicId) {
-  const form = new FormData();
-  form.append('file', `data:${type || 'image/jpeg'};base64,${base64}`);
-  form.append('upload_preset', CLOUDINARY_PRESET);
-  form.append('public_id', publicId);
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
-    { method: 'POST', body: form }
-  );
+async function uploadImagesToDrive(images, store, article, pic, stock_day) {
+  if (!images || images.length === 0) return [];
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'uploadImages', store, article, pic, stock_day, images }),
+  });
   const json = await res.json();
-  if (!res.ok || !json.secure_url) {
-    throw new Error(json?.error?.message || 'Lỗi tải ảnh lên Cloudinary');
-  }
-  return json.secure_url;
+  if (json.error) throw new Error(json.error);
+  return json.imageUrls || [];
 }
 
 // payload: { store, article, current_stock, counted_stock, note, lat, long,
@@ -78,22 +67,13 @@ export async function submitConfirmation(payload) {
     image, imageType, images, stock_day, pic,
   } = payload;
 
-  // Chuẩn hoá danh sách ảnh: ưu tiên images[], fallback single image
+  // Chuẩn hoá danh sách ảnh
   const imageList = Array.isArray(images) && images.length > 0
     ? images.slice(0, 5)
     : (image ? [{ base64: image, type: imageType || 'image/jpeg' }] : []);
 
-  // Upload ảnh trực tiếp lên Cloudinary từ trình duyệt
-  const imageUrls = [];
-  if (imageList.length > 0) {
-    const folder = `${toMmdd(stock_day)}/${pic || 'nopic'}_${store}`;
-    for (let i = 0; i < imageList.length; i++) {
-      const suffix = imageList.length > 1 ? `_${i + 1}` : '';
-      const publicId = `${folder}/${store}_${String(article)}${suffix}`;
-      const url = await uploadToCloudinary(imageList[i].base64, imageList[i].type, publicId);
-      imageUrls.push(url);
-    }
-  }
+  // Upload ảnh lên Google Drive qua GAS
+  const imageUrls = await uploadImagesToDrive(imageList, String(store), String(article), pic, stock_day);
 
   return rpc('confirm_stock', {
     p_store: String(store),

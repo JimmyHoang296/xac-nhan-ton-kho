@@ -12,6 +12,3 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 });
 
-// Cloudinary (unsigned upload từ trình duyệt)
-export const CLOUDINARY_CLOUD = import.meta.env.VITE_CLOUDINARY_CLOUD;
-export const CLOUDINARY_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;

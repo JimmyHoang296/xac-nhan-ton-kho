@@ -1,9 +1,6 @@
 const SPREADSHEET_ID = '1mQX6TXjrxjSP08cQ-sGES__prD0_NM23GcyexcFOc6I';
 const DRIVE_FOLDER_ID = '11tUqvg52iEOgdSldCiljSOnCE146Hnae';
 
-const CLOUDINARY_CLOUD  = 'dy9kmwc6y';
-const CLOUDINARY_KEY    = '325575763856237';
-const CLOUDINARY_SECRET = 'ZEBiYb4slhmipSHvOx5cHfARthM';
 
 function doGet(e) {
   try {
@@ -46,6 +43,7 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.action === 'confirm')             return respond(confirmStock(data));
+    if (data.action === 'uploadImages')        return respond(uploadImages(data));
     if (data.action === 'picLogin')            return respond(picLogin(data));
     if (data.action === 'savePicComment')      return respond(savePicComment(data));
     if (data.action === 'batchSavePicComment') return respond(batchSavePicComment(data));
@@ -179,15 +177,17 @@ function confirmStock(data) {
     ? images.slice(0, 5)
     : (image ? [{ base64: image, type: imageType || 'image/jpeg' }] : []);
 
-  // Upload ảnh lên Cloudinary
+  // Upload ảnh lên Google Drive
   const imageUrls = [];
   if (imageList.length > 0) {
-    const folder = toMmdd(stockDay) + '/' + (pic || 'nopic') + '_' + store;
+    const rootFolder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    const dateFolder = getOrCreateFolder(rootFolder, toMmdd(stockDay));
+    const picStoreFolder = getOrCreateFolder(dateFolder, (pic || 'nopic') + '_' + store);
 
     imageList.forEach(function(img, idx) {
-      var suffix = imageList.length > 1 ? '_' + (idx + 1) : '';
-      var publicId = folder + '/' + store + '_' + String(article) + suffix;
-      var url = uploadToCloudinary(img.base64, img.type || 'image/jpeg', publicId);
+      const suffix = imageList.length > 1 ? '_' + (idx + 1) : '';
+      const fileName = store + '_' + String(article) + suffix + '.jpg';
+      const url = uploadToDrive(img.base64, img.type || 'image/jpeg', fileName, picStoreFolder);
       if (url) imageUrls.push(url);
     });
   }
@@ -414,53 +414,37 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// ── Cloudinary upload ─────────────────────────────────────
+// ── Google Drive upload ───────────────────────────────────
 
-function uploadToCloudinary(base64Data, mimeType, publicId) {
-  var timestamp = Math.floor(Date.now() / 1000);
-  var paramsToSign = 'folder=xac-nhan-ton-kho&public_id=' + publicId + '&timestamp=' + timestamp;
-  var signature = computeSha1(paramsToSign + CLOUDINARY_SECRET);
+// POST { action:'uploadImages', store, article, pic, stock_day, images:[{base64,type}] }
+function uploadImages(data) {
+  const { store, article, pic, stock_day, images } = data;
+  if (!Array.isArray(images) || images.length === 0) return { imageUrls: [] };
 
-  var boundary = '----CloudinaryBoundary' + timestamp;
-  var payload = '';
-  payload += '--' + boundary + '\r\n';
-  payload += 'Content-Disposition: form-data; name="file"\r\n\r\n';
-  payload += 'data:' + mimeType + ';base64,' + base64Data + '\r\n';
-  payload += '--' + boundary + '\r\n';
-  payload += 'Content-Disposition: form-data; name="api_key"\r\n\r\n';
-  payload += CLOUDINARY_KEY + '\r\n';
-  payload += '--' + boundary + '\r\n';
-  payload += 'Content-Disposition: form-data; name="timestamp"\r\n\r\n';
-  payload += timestamp + '\r\n';
-  payload += '--' + boundary + '\r\n';
-  payload += 'Content-Disposition: form-data; name="signature"\r\n\r\n';
-  payload += signature + '\r\n';
-  payload += '--' + boundary + '\r\n';
-  payload += 'Content-Disposition: form-data; name="public_id"\r\n\r\n';
-  payload += publicId + '\r\n';
-  payload += '--' + boundary + '\r\n';
-  payload += 'Content-Disposition: form-data; name="folder"\r\n\r\n';
-  payload += 'xac-nhan-ton-kho\r\n';
-  payload += '--' + boundary + '--\r\n';
+  const rootFolder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  const dateFolder = getOrCreateFolder(rootFolder, toMmdd(stock_day));
+  const picStoreFolder = getOrCreateFolder(dateFolder, (pic || 'nopic') + '_' + store);
 
-  var options = {
-    method: 'post',
-    contentType: 'multipart/form-data; boundary=' + boundary,
-    payload: payload,
-    muteHttpExceptions: true,
-  };
+  const imageUrls = [];
+  images.slice(0, 5).forEach(function(img, idx) {
+    const suffix = images.length > 1 ? '_' + (idx + 1) : '';
+    const fileName = store + '_' + String(article) + suffix + '.jpg';
+    const url = uploadToDrive(img.base64, img.type || 'image/jpeg', fileName, picStoreFolder);
+    if (url) imageUrls.push(url);
+  });
 
-  var res = UrlFetchApp.fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', options);
-  var json = JSON.parse(res.getContentText());
-  return json.secure_url || null;
+  return { imageUrls };
 }
 
-function computeSha1(input) {
-  var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, input);
-  return raw.map(function(b) {
-    var hex = (b < 0 ? b + 256 : b).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  }).join('');
+function uploadToDrive(base64Data, mimeType, fileName, folder) {
+  const blob = Utilities.newBlob(
+    Utilities.base64Decode(base64Data),
+    mimeType,
+    fileName
+  );
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return 'https://drive.google.com/file/d/' + file.getId() + '/view';
 }
 
 // ── QLKV functions ────────────────────────────────────────
