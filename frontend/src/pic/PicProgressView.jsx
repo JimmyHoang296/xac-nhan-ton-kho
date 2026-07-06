@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ProgressDashboard.module.css';
 
-export default function PicProgressView({ pic, stocks, loading, error, onRefresh, onLogout, onViewDetail }) {
+export default function PicProgressView({ pic, stocks, grRecords = [], loading, error, onRefresh, onLogout, onViewDetail, onViewGr }) {
   const [expanded, setExpanded] = useState({});
   const [sort,     setSort]     = useState({ col: null, dir: 'asc' });
 
-  const groups = buildQlkvGroups(stocks);
+  const groups = buildQlkvGroups(stocks, grRecords);
 
   useEffect(() => {
     if (groups.length > 0 && Object.keys(expanded).length === 0) {
@@ -21,8 +21,10 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
     acc.articles   += g.articles;
     acc.artDone    += g.artDone;
     acc.reviewed   += g.reviewed;
+    acc.grTotal    += g.grTotal;
+    acc.grDone     += g.grDone;
     return acc;
-  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 });
+  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 });
 
   function toggleQlkv(qlkv) {
     setExpanded(prev => ({ ...prev, [qlkv]: !prev[qlkv] }));
@@ -61,7 +63,8 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <button className={styles.detailBtn} onClick={onViewDetail}>Chi tiết</button>
+            <button className={styles.detailBtn} onClick={onViewDetail}>Tồn kho</button>
+            {onViewGr && <button className={styles.detailBtn} onClick={onViewGr}>Nhập kho</button>}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
         </div>
@@ -76,6 +79,9 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
               sub={pct(grandTotal.artDone, grandTotal.articles)} />
             <SummaryCard label="Đã thẩm định" value={grandTotal.reviewed} color="blue"
               sub={pct(grandTotal.reviewed, grandTotal.artDone)} />
+            <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
+            <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
+              sub={pct(grandTotal.grDone, grandTotal.grTotal)} />
           </div>
         )}
       </header>
@@ -108,6 +114,9 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                   <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ XN</SortTh>
                   <SortTh col="reviewed"   sort={sort} onSort={handleSort} cls={styles.thNum}>Đã TĐ</SortTh>
                   <SortTh col="reviewPct"  sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ TĐ</SortTh>
+                  <SortTh col="grPending"  sort={sort} onSort={handleSort} cls={styles.thNum}>PO chờ</SortTh>
+                  <SortTh col="grDone"     sort={sort} onSort={handleSort} cls={styles.thNum}>PO đã XN</SortTh>
+                  <SortTh col="grPct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ PO</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -135,6 +144,15 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                       <td className={styles.pctCell}>
                         <ProgressBar value={g.reviewed} total={g.artDone} color="blue" />
                       </td>
+                      <td className={styles.numCell}>
+                        <span className={g.grTotal - g.grDone > 0 ? styles.numPending : ''}>{g.grTotal - g.grDone}</span>
+                      </td>
+                      <td className={styles.numCell}>
+                        <span className={isDone(g.grDone, g.grTotal) ? styles.numDone : ''}>{g.grDone}</span>
+                      </td>
+                      <td className={styles.pctCell}>
+                        <ProgressBar value={g.grDone} total={g.grTotal} color="blue" />
+                      </td>
                     </tr>
 
                     {/* Store rows */}
@@ -156,6 +174,15 @@ export default function PicProgressView({ pic, stocks, loading, error, onRefresh
                         <td className={styles.numCell}>{s.reviewed}</td>
                         <td className={styles.pctCell}>
                           <ProgressBar value={s.reviewed} total={s.artDone} color="blue" />
+                        </td>
+                        <td className={styles.numCell}>
+                          <span className={s.grTotal - s.grDone > 0 ? styles.numPending : ''}>{s.grTotal - s.grDone}</span>
+                        </td>
+                        <td className={styles.numCell}>
+                          <span className={isDone(s.grDone, s.grTotal) ? styles.numDone : ''}>{s.grDone}</span>
+                        </td>
+                        <td className={styles.pctCell}>
+                          <ProgressBar value={s.grDone} total={s.grTotal} color="blue" />
                         </td>
                       </tr>
                     ))}
@@ -210,10 +237,12 @@ function sortGroups(groups, { col, dir }) {
   const sign = dir === 'asc' ? 1 : -1;
   return [...groups].sort((a, b) => {
     let va, vb;
-    if (col === 'name')        { va = a.qlkv;       vb = b.qlkv; }
-    else if (col === 'pct')    { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
+    if (col === 'name')           { va = a.qlkv; vb = b.qlkv; }
+    else if (col === 'pct')       { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
     else if (col === 'reviewPct') { va = a.artDone ? a.reviewed / a.artDone : 0; vb = b.artDone ? b.reviewed / b.artDone : 0; }
-    else                       { va = a[col] ?? 0;  vb = b[col] ?? 0; }
+    else if (col === 'grPending') { va = a.grTotal - a.grDone; vb = b.grTotal - b.grDone; }
+    else if (col === 'grPct')     { va = a.grTotal ? a.grDone / a.grTotal : 0; vb = b.grTotal ? b.grDone / b.grTotal : 0; }
+    else                          { va = a[col] ?? 0; vb = b[col] ?? 0; }
     if (typeof va === 'string') return sign * va.localeCompare(vb, 'vi');
     return sign * (va - vb);
   });
@@ -222,26 +251,41 @@ function sortGroups(groups, { col, dir }) {
 function isDone(a, b) { return b > 0 && a === b; }
 function pct(a, b)    { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
-function buildQlkvGroups(stocks) {
+function buildQlkvGroups(stocks, grRecords = []) {
+  const grByStore = {};
+  grRecords.forEach(r => {
+    const key = String(r.site);
+    if (!grByStore[key]) grByStore[key] = { total: 0, done: 0 };
+    grByStore[key].total++;
+    if (r.time_stamp && r.time_stamp !== '') grByStore[key].done++;
+  });
+
   const storeArt = {};
   stocks.forEach(s => {
     const key = String(s.store);
-    if (!storeArt[key]) storeArt[key] = { store_name: s.store_name || '', qlkv: s.qlkv || 'Chưa phân công', total: 0, done: 0, reviewed: 0 };
+    if (!storeArt[key]) storeArt[key] = {
+      store_name: s.store_name || '', qlkv: s.qlkv || 'Chưa phân công',
+      total: 0, done: 0, reviewed: 0,
+      grTotal: grByStore[key]?.total || 0,
+      grDone:  grByStore[key]?.done  || 0,
+    };
     storeArt[key].total++;
     if (s.counted_stock !== null && s.counted_stock !== '') storeArt[key].done++;
     if (s.pic_status && s.pic_status !== '') storeArt[key].reviewed++;
   });
 
   const qlkvMap = {};
-  Object.entries(storeArt).forEach(([storeCode, { store_name, qlkv, total, done, reviewed }]) => {
-    if (!qlkvMap[qlkv]) qlkvMap[qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, storeList: [] };
+  Object.entries(storeArt).forEach(([storeCode, { store_name, qlkv, total, done, reviewed, grTotal, grDone }]) => {
+    if (!qlkvMap[qlkv]) qlkvMap[qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, storeList: [] };
     const cell = qlkvMap[qlkv];
     cell.stores++;
     if (done === total) cell.storesDone++;
     cell.articles += total;
     cell.artDone  += done;
     cell.reviewed += reviewed;
-    cell.storeList.push({ store: storeCode, store_name, articles: total, artDone: done, reviewed });
+    cell.grTotal  += grTotal;
+    cell.grDone   += grDone;
+    cell.storeList.push({ store: storeCode, store_name, articles: total, artDone: done, reviewed, grTotal, grDone });
   });
 
   return Object.entries(qlkvMap)

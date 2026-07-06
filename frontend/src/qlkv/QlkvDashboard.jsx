@@ -4,8 +4,10 @@ import styles from '../pic/PicDashboard.module.css';
 
 const ROLE_LABELS = { qlkv: 'QLKV', gdv: 'GDV', gdm: 'GDM', gdc: 'GDC' };
 
-export default function QlkvDashboard({ username, name, role, stocks, loading, error, onRefresh, onLogout, onSwitchProgress }) {
+export default function QlkvDashboard({ username, name, role, stocks, grRecords = [], loading, error, onRefresh, onLogout, onSwitchProgress, onSwitchGr }) {
   const [selectedKey, setSelectedKey] = useState(null);
+  const [selectedStore, setSelectedStore] = useState(null);
+  const [detailTab, setDetailTab] = useState('stock'); // 'stock' | 'gr'
   const [filter, setFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,6 +68,31 @@ export default function QlkvDashboard({ username, name, role, stocks, loading, e
     ? stocks.find(s => `${s.store}-${s.article}` === selectedKey)
     : null;
 
+  const grByStore = grRecords.reduce((acc, r) => {
+    if (!acc[r.site]) acc[r.site] = [];
+    acc[r.site].push(r);
+    return acc;
+  }, {});
+
+  const isGrConfirmed = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
+
+  function handleSelectStock(key, store) {
+    setSelectedKey(key);
+    setSelectedStore(store);
+    setDetailTab('stock');
+  }
+
+  function handleSelectGr(store) {
+    setSelectedKey(null);
+    setSelectedStore(store);
+    setDetailTab('gr');
+  }
+
+  function handleBackToList() {
+    setSelectedKey(null);
+    setSelectedStore(null);
+  }
+
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
@@ -117,6 +144,9 @@ export default function QlkvDashboard({ username, name, role, stocks, loading, e
                 <span>Excel</span>
               </button>
             )}
+            {onSwitchGr && (
+              <button className={styles.progressBtn} onClick={onSwitchGr}>Nhập kho</button>
+            )}
             {onSwitchProgress && (
               <button className={styles.progressBtn} onClick={onSwitchProgress}>Tổng quan</button>
             )}
@@ -127,7 +157,7 @@ export default function QlkvDashboard({ username, name, role, stocks, loading, e
 
       <div className={styles.masterDetail}>
         {/* ── LEFT: List panel ── */}
-        <div className={`${styles.listPanel} ${selectedKey ? styles.listPanelMobileHidden : ''}`}>
+        <div className={`${styles.listPanel} ${selectedStore ? styles.listPanelMobileHidden : ''}`}>
           {loading && <div className={styles.center}><span className={styles.spinner} /></div>}
           {error   && <p className={styles.errorMsg}>{error}</p>}
 
@@ -219,22 +249,60 @@ export default function QlkvDashboard({ username, name, role, stocks, loading, e
               )}
 
               <div className={styles.storeList}>
-                {displayedGroups.map(group => (
-                  <StoreGroup key={group.store} group={group} selectedKey={selectedKey} onSelect={setSelectedKey} />
-                ))}
+                {displayedGroups.map(group => {
+                  const grItems = grByStore[group.store] || [];
+                  const grPending = grItems.filter(r => !isGrConfirmed(r)).length;
+                  return (
+                    <StoreGroup
+                      key={group.store}
+                      group={group}
+                      grItems={grItems}
+                      grPending={grPending}
+                      selectedKey={selectedKey}
+                      onSelect={(key, store) => handleSelectStock(key, store)}
+                      onSelectGr={store => handleSelectGr(store)}
+                    />
+                  );
+                })}
               </div>
             </>
           )}
         </div>
 
         {/* ── RIGHT: Detail pane ── */}
-        <div className={`${styles.detailPane} ${selectedKey ? styles.detailPaneVisible : ''}`}>
-          {currentSelectedStock ? (
-            <DetailPanel
-              stock={currentSelectedStock}
-              role={role}
-              onBack={() => setSelectedKey(null)}
-            />
+        <div className={`${styles.detailPane} ${selectedStore ? styles.detailPaneVisible : ''}`}>
+          {selectedStore ? (
+            <>
+              <div className={styles.detailTabs}>
+                <button
+                  className={`${styles.detailTabBtn} ${detailTab === 'stock' ? styles.detailTabActive : ''}`}
+                  onClick={() => setDetailTab('stock')}
+                >Tồn kho</button>
+                <button
+                  className={`${styles.detailTabBtn} ${detailTab === 'gr' ? styles.detailTabActive : ''}`}
+                  onClick={() => setDetailTab('gr')}
+                >
+                  Phiếu NK
+                  {(() => { const p = (grByStore[selectedStore] || []).filter(r => !isGrConfirmed(r)).length; return p > 0 ? <span className={styles.detailTabBadge}>{p}</span> : null; })()}
+                </button>
+              </div>
+
+              {detailTab === 'stock' ? (
+                currentSelectedStock ? (
+                  <DetailPanel stock={currentSelectedStock} role={role} onBack={handleBackToList} />
+                ) : (
+                  <div className={styles.detailPlaceholder}>
+                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 12h6M9 16h6M7 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 4h6a1 1 0 010 2H9a1 1 0 010-2z"
+                        stroke="#bdc1c6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <p className={styles.placeholderText}>Chọn sản phẩm để xem chi tiết</p>
+                  </div>
+                )
+              ) : (
+                <GrDetailPane records={grByStore[selectedStore] || []} onBack={handleBackToList} />
+              )}
+            </>
           ) : (
             <div className={styles.detailPlaceholder}>
               <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
@@ -251,7 +319,10 @@ export default function QlkvDashboard({ username, name, role, stocks, loading, e
 }
 
 /* ─── StoreGroup ─── */
-function StoreGroup({ group, selectedKey, onSelect }) {
+function StoreGroup({ group, grItems, grPending, selectedKey, onSelect, onSelectGr }) {
+  const grDone = grItems.length - grPending;
+  const grRate = grItems.length > 0 ? Math.round(grDone / grItems.length * 100) : 0;
+
   return (
     <div className={styles.storeGroup}>
       <div className={styles.storeHeader}>
@@ -261,15 +332,96 @@ function StoreGroup({ group, selectedKey, onSelect }) {
           {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
           /{group.items.length} XN
         </span>
+        <button
+          className={`${styles.grStatsRow} ${grPending > 0 ? styles.grStatsRowPending : ''}`}
+          onClick={e => { e.stopPropagation(); onSelectGr(group.store); }}
+        >
+          <span className={styles.grStatCol}>
+            <span className={`${styles.grStatColNum} ${grPending > 0 ? styles.grStatColNumPending : styles.grStatColNumDone}`}>{grPending}</span>
+            <span className={styles.grStatColLabel}>PO chờ</span>
+          </span>
+          <span className={styles.grStatCol}>
+            <span className={`${styles.grStatColNum} ${styles.grStatColNumDone}`}>{grDone}</span>
+            <span className={styles.grStatColLabel}>Đã XN</span>
+          </span>
+          <span className={styles.grStatCol}>
+            <span className={`${styles.grStatColNum} ${styles.grStatColNumRate}`}>{grRate}%</span>
+            <span className={styles.grStatColLabel}>Tỷ lệ</span>
+          </span>
+        </button>
       </div>
       {group.items.map(stock => {
         const key = `${stock.store}-${stock.article}`;
         const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
         return (
           <StockRow key={key} stock={stock} isConfirmed={isConfirmed}
-            isSelected={selectedKey === key} onClick={() => onSelect(key)} />
+            isSelected={selectedKey === key} onClick={() => onSelect(key, stock.store)} />
         );
       })}
+    </div>
+  );
+}
+
+/* ─── GrDetailPane ─── */
+function GrDetailPane({ records, onBack }) {
+  const isGrConfirmed = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
+  const confirmed = records.filter(isGrConfirmed);
+
+  return (
+    <div className={styles.detailPanelInner}>
+      <div className={styles.detailPanelHeader}>
+        <button className={styles.backBtn} onClick={onBack}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Danh sách
+        </button>
+        <div className={styles.detailTitleRow}>
+          <h2 className={styles.detailArticleName}>Phiếu nhập kho</h2>
+          <span className={styles.badge} style={{ background: '#e6f4ea', color: '#137333' }}>
+            {confirmed.length}/{records.length} đã XN
+          </span>
+        </div>
+      </div>
+
+      {records.length === 0 ? (
+        <div className={styles.grEmptyPane}>
+          <p>Cửa hàng này không có phiếu nhập kho</p>
+        </div>
+      ) : (
+        <div className={styles.grPane}>
+          {records.map(r => {
+            const done = isGrConfirmed(r);
+            return (
+              <div key={r.po_number}
+                className={`${styles.grRecord} ${done ? styles.grRecordConfirmed : styles.grRecordPending}`}
+              >
+                <div className={styles.grRecordTop}>
+                  <span className={styles.grPoNum}>PO {r.po_number}</span>
+                  <span className={`${styles.grBadgeSmall} ${done ? styles.grBadgeSmallDone : styles.grBadgeSmallPending}`}>
+                    {done ? '✓ Đã XN' : 'Chờ XN'}
+                  </span>
+                </div>
+                <p className={styles.grProductName}>{r.product || r.vendor_name || '—'}</p>
+                <div className={styles.grMeta}>
+                  <span className={styles.grMetaItem}>
+                    PO: {fmtAmount(r.po_amount)} {r.currency || 'VND'}
+                  </span>
+                  {done && (
+                    <span className={styles.grMetaItem}>
+                      Nhận: <strong>{r.confirmed_amount ? Number(r.confirmed_amount).toLocaleString('vi-VN') : '0'}</strong>
+                    </span>
+                  )}
+                  {r.time_stamp && <span className={styles.grMetaItem}>{formatDateTime(r.time_stamp)}</span>}
+                </div>
+                {r.confirm_note && (
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: '#5f6368' }}>{r.confirm_note}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -457,6 +609,12 @@ function DetailPanel({ stock, role, onBack }) {
       </div>
     </div>
   );
+}
+
+function fmtAmount(val) {
+  if (!val && val !== 0) return '—';
+  const n = Number(String(val).replace(/[^\d.-]/g, ''));
+  return isNaN(n) ? '—' : n.toLocaleString('vi-VN');
 }
 
 function normalizeRisk(risk) {

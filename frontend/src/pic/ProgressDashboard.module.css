@@ -20,7 +20,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  max-width: 720px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
@@ -122,10 +122,10 @@
 /* ── Summary bar ── */
 .summaryBar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 0 16px 12px;
-  overflow-x: auto;
-  max-width: 720px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
@@ -158,6 +158,10 @@
   color: #1a73e8;
 }
 
+.summaryNumOrange {
+  color: #e37400;
+}
+
 .summaryLabel {
   font-size: 11px;
   color: #80868b;
@@ -186,7 +190,11 @@
 }
 
 .body>.tableWrapWide {
-  max-width: 900px;
+  max-width: none;
+}
+
+.tableWrapWide .table {
+  min-width: max-content;
 }
 
 .center {
@@ -387,6 +395,11 @@
 
 .numDone {
   color: #1e8e3e;
+  font-weight: 600;
+}
+
+.numPending {
+  color: #e37400;
   font-weight: 600;
 }
 

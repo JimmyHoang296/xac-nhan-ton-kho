@@ -1070,3 +1070,227 @@
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* ── GR stats badge in store header ── */
+.grBadge {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  background: #e8f0fe;
+  color: #1a73e8;
+  transition: background 0.12s;
+}
+.grBadge:hover  { background: #d2e3fc; }
+.grBadgePending { background: #fef7e0; color: #e37400; }
+.grBadgePending:hover { background: #fde89e; }
+
+/* ── Detail pane tabs ── */
+.detailTabs {
+  display: flex;
+  border-bottom: 1px solid #e8eaed;
+  background: white;
+  flex-shrink: 0;
+}
+
+.detailTabBtn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #80868b;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.detailTabBtn:hover { color: #1a73e8; }
+
+.detailTabActive {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+}
+
+.detailTabBadge {
+  background: #f29900;
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ── GR record list in detail pane ── */
+.grPane {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fafafa;
+}
+
+.grEmptyPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #80868b;
+  font-size: 0.85rem;
+  gap: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.grRecord {
+  background: white;
+  border-radius: 10px;
+  padding: 0.75rem 0.875rem;
+  border-left: 3px solid #e8eaed;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.grRecordConfirmed { border-left-color: #34a853; }
+.grRecordPending   { border-left-color: #fbbc04; }
+
+.grRecordTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+  gap: 0.5rem;
+}
+
+.grPoNum {
+  font-size: 0.75rem;
+  color: #80868b;
+  font-family: monospace;
+}
+
+.grBadgeSmall {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 8px;
+}
+.grBadgeSmallDone    { background: #e6f4ea; color: #137333; }
+.grBadgeSmallPending { background: #fef7e0; color: #e37400; }
+
+.grProductName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 0.35rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.grMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  color: #5f6368;
+}
+
+.grMetaItem strong { color: #34a853; }
+
+.grPicCommentBox {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f3f4;
+}
+
+.grPicStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.grStatusSelect {
+  font-size: 0.78rem;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  color: #3c4043;
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.grCommentInput {
+  width: 100%;
+  font-size: 0.8rem;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  resize: none;
+  font-family: inherit;
+  color: #3c4043;
+  box-sizing: border-box;
+}
+
+.grCommentInput:focus { border-color: #1a73e8; outline: none; }
+
+/* ── GR stats columns in store header ── */
+.grStatsRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  font-family: inherit;
+  transition: border-color 0.12s;
+}
+.grStatsRow:hover { border-color: #1a73e8; }
+.grStatsRowPending { border-color: #e37400; }
+.grStatsRowPending:hover { border-color: #c85e00; }
+
+.grStatCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  min-width: 44px;
+  border-right: 1px solid #e8eaed;
+}
+.grStatCol:last-child { border-right: none; }
+
+.grStatColNum {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #3c4043;
+}
+.grStatColNumPending { color: #e37400; }
+.grStatColNumDone    { color: #137333; }
+.grStatColNumRate    { color: #1a73e8; }
+
+.grStatColLabel {
+  font-size: 0.62rem;
+  color: #80868b;
+  white-space: nowrap;
+  margin-top: 1px;
+}

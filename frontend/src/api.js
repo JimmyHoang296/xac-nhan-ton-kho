@@ -2,6 +2,29 @@ import { supabase } from './supabaseClient';
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPE_f3Mn17IhGLZjL45q9GSqU3vAy7JKlHLlhhdapiTnFKv3jIpymbYQipoj04ysMX/exec';
 
+export async function fetchGrByStore(store) {
+  return rpc('get_gr_by_store', { p_store: String(store) });
+}
+
+export async function fetchPicGr(pic) {
+  return rpc('get_pic_gr', { p_pic: pic });
+}
+
+export async function fetchQlkvGr(username) {
+  return rpc('get_qlkv_gr', { p_username: username });
+}
+
+export async function saveGrPicComment(pic, po_number, site, comment, pic_status) {
+  return rpc('save_gr_pic_comment', {
+    p_pic: pic, p_po_number: String(po_number), p_site: String(site),
+    p_comment: comment, p_pic_status: pic_status,
+  });
+}
+
+export async function batchSaveGrPicComment(pic, items) {
+  return rpc('batch_save_gr_pic_comment', { p_pic: pic, p_items: items });
+}
+
 // Gọi RPC Supabase và chuẩn hoá lỗi giống cách cũ (throw Error để UI hiển thị).
 async function rpc(name, params) {
   const { data, error } = await supabase.rpc(name, params);
@@ -33,6 +56,10 @@ export async function fetchProgress() {
   return rpc('get_progress', {});
 }
 
+export async function fetchAllGr() {
+  return rpc('get_all_gr', {});
+}
+
 export async function qlkvLogin(username) {
   return rpc('qlkv_login', { p_username: username });
 }
@@ -43,6 +70,25 @@ export async function fetchQlkvStocks(username) {
 
 export async function batchSavePicComment(pic, items) {
   return rpc('batch_save_pic_comment', { p_pic: pic, p_items: items });
+}
+
+export async function submitGrConfirmation(payload) {
+  const { po_number, site, confirmed_amount, note, lat, long, images } = payload;
+
+  const imageList = Array.isArray(images) && images.length > 0 ? images.slice(0, 5) : [];
+  const imageUrls = imageList.length > 0
+    ? await uploadImagesToDrive(imageList, String(site), String(po_number), 'gr', '')
+    : [];
+
+  return rpc('confirm_gr', {
+    p_po_number: String(po_number),
+    p_site: String(site),
+    p_confirmed_amount: confirmed_amount == null ? '' : String(confirmed_amount),
+    p_note: note || '',
+    p_lat: lat == null ? '' : String(lat),
+    p_long: long == null ? '' : String(long),
+    p_image_urls: imageUrls,
+  });
 }
 
 // ── Google Drive upload (qua GAS) ───────────────────────────────────────────

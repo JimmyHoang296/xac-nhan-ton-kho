@@ -3,18 +3,20 @@ import styles from '../pic/ProgressDashboard.module.css';
 
 const ROLE_LABELS = { qlkv: 'QLKV', gdv: 'GDV', gdm: 'GDM', gdc: 'GDC' };
 
-export default function QlkvProgressView({ username, name, role, stocks, loading, error, onRefresh, onLogout, onViewDetail }) {
+export default function QlkvProgressView({ username, name, role, stocks, grRecords = [], loading, error, onRefresh, onLogout, onViewDetail, onViewGr }) {
   const isManager = role === 'gdv' || role === 'gdm' || role === 'gdc';
   const [sort, setSort] = useState({ col: null, dir: 'asc' });
 
-  const rows = buildStoreRows(stocks);
-  const hierarchy = isManager ? buildProgressHierarchy(stocks, role) : null;
+  const rows = buildStoreRows(stocks, grRecords);
+  const hierarchy = isManager ? buildProgressHierarchy(stocks, grRecords, role) : null;
 
   const grandTotal = rows.reduce((acc, r) => {
     acc.articles += r.articles;
     acc.artDone  += r.artDone;
+    acc.grTotal  += r.grTotal;
+    acc.grDone   += r.grDone;
     return acc;
-  }, { articles: 0, artDone: 0 });
+  }, { articles: 0, artDone: 0, grTotal: 0, grDone: 0 });
   const storesDone = rows.filter(r => r.artDone === r.articles).length;
 
   function handleSort(col) {
@@ -41,7 +43,8 @@ export default function QlkvProgressView({ username, name, role, stocks, loading
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <button className={styles.detailBtn} onClick={onViewDetail}>Chi tiết</button>
+            <button className={styles.detailBtn} onClick={onViewDetail}>Tồn kho</button>
+            {onViewGr && <button className={styles.detailBtn} onClick={onViewGr}>Nhập kho</button>}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
         </div>
@@ -55,6 +58,9 @@ export default function QlkvProgressView({ username, name, role, stocks, loading
             <SummaryCard label="Tổng mã"  value={grandTotal.articles} />
             <SummaryCard label="Mã đã XN" value={grandTotal.artDone} color="green"
               sub={fmtPct(grandTotal.artDone, grandTotal.articles)} />
+            <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
+            <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
+              sub={fmtPct(grandTotal.grDone, grandTotal.grTotal)} />
           </div>
         )}
       </header>
@@ -71,10 +77,13 @@ export default function QlkvProgressView({ username, name, role, stocks, loading
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <SortTh col="store"    sort={sort} onSort={handleSort} cls={styles.thName}>Cửa hàng</SortTh>
-                  <SortTh col="articles" sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
-                  <SortTh col="artDone"  sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
-                  <SortTh col="pct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
+                  <SortTh col="store"      sort={sort} onSort={handleSort} cls={styles.thName}>Cửa hàng</SortTh>
+                  <SortTh col="articles"   sort={sort} onSort={handleSort} cls={styles.thNum}>Số mã</SortTh>
+                  <SortTh col="artDone"    sort={sort} onSort={handleSort} cls={styles.thNum}>Mã đã XN</SortTh>
+                  <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tiến độ</SortTh>
+                  <SortTh col="grPending"  sort={sort} onSort={handleSort} cls={styles.thNum}>PO chờ</SortTh>
+                  <SortTh col="grDone"     sort={sort} onSort={handleSort} cls={styles.thNum}>PO đã XN</SortTh>
+                  <SortTh col="grPct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ PO</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -90,6 +99,15 @@ export default function QlkvProgressView({ username, name, role, stocks, loading
                     </td>
                     <td className={styles.pctCell}>
                       <ProgressBar value={r.artDone} total={r.articles} />
+                    </td>
+                    <td className={styles.numCell}>
+                      <span className={r.grTotal - r.grDone > 0 ? styles.numPending : ''}>{r.grTotal - r.grDone}</span>
+                    </td>
+                    <td className={styles.numCell}>
+                      <span className={r.grDone === r.grTotal && r.grTotal > 0 ? styles.numDone : ''}>{r.grDone}</span>
+                    </td>
+                    <td className={styles.pctCell}>
+                      <ProgressBar value={r.grDone} total={r.grTotal} />
                     </td>
                   </tr>
                 ))}
@@ -150,8 +168,10 @@ function sortStoreRows(rows, { col, dir }) {
   const sign = dir === 'asc' ? 1 : -1;
   return [...rows].sort((a, b) => {
     let va, vb;
-    if (col === 'store') { va = `${a.store} ${a.store_name}`; vb = `${b.store} ${b.store_name}`; }
-    else if (col === 'pct') { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
+    if (col === 'store')      { va = `${a.store} ${a.store_name}`; vb = `${b.store} ${b.store_name}`; }
+    else if (col === 'pct')   { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
+    else if (col === 'grPending') { va = a.grTotal - a.grDone; vb = b.grTotal - b.grDone; }
+    else if (col === 'grPct') { va = a.grTotal ? a.grDone / a.grTotal : 0; vb = b.grTotal ? b.grDone / b.grTotal : 0; }
     else { va = a[col] ?? 0; vb = b[col] ?? 0; }
     if (typeof va === 'string') return sign * va.localeCompare(vb, 'vi');
     return sign * (va - vb);
@@ -161,7 +181,7 @@ function sortStoreRows(rows, { col, dir }) {
 function fmtPct(a, b) { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
 /* ─── Hierarchy for progress view ─── */
-function buildProgressHierarchy(stocks, role) {
+function buildProgressHierarchy(stocks, grRecords = [], role) {
   // gdv: QLKV → stores
   // gdm: GDV → QLKV → stores
   // gdc: GDM → GDV → QLKV → stores
@@ -269,11 +289,23 @@ function HierarchyProgressNode({ node, sort, onSort, depth }) {
   );
 }
 
-function buildStoreRows(stocks) {
+function buildStoreRows(stocks, grRecords = []) {
+  const grByStore = {};
+  grRecords.forEach(r => {
+    const key = String(r.site);
+    if (!grByStore[key]) grByStore[key] = { total: 0, done: 0 };
+    grByStore[key].total++;
+    if (r.time_stamp && r.time_stamp !== '') grByStore[key].done++;
+  });
+
   const map = {};
   stocks.forEach(s => {
     const key = String(s.store);
-    if (!map[key]) map[key] = { store: key, store_name: s.store_name || '', articles: 0, artDone: 0 };
+    if (!map[key]) map[key] = {
+      store: key, store_name: s.store_name || '', articles: 0, artDone: 0,
+      grTotal: grByStore[key]?.total || 0,
+      grDone:  grByStore[key]?.done  || 0,
+    };
     map[key].articles++;
     if (s.counted_stock !== null && s.counted_stock !== '') map[key].artDone++;
   });

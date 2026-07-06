@@ -3,8 +3,10 @@ import * as XLSX from 'xlsx';
 import { batchSavePicComment } from '../api';
 import styles from './PicDashboard.module.css';
 
-export default function PicDashboard({ pic, stocks, setStocks, loading, error, onRefresh, onLogout, onSwitchProgress }) {
+export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], loading, error, onRefresh, onLogout, onSwitchProgress, onSwitchGr }) {
   const [selectedKey, setSelectedKey] = useState(null);
+  const [selectedStore, setSelectedStore] = useState(null);
+  const [detailTab, setDetailTab] = useState('stock'); // 'stock' | 'gr'
   const [filter, setFilter] = useState('all');
   const [picStatusFilter, setPicStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
@@ -123,6 +125,33 @@ export default function PicDashboard({ pic, stocks, setStocks, loading, error, o
     ? stocks.find(s => `${s.store}-${s.article}` === selectedKey)
     : null;
 
+  // GR data grouped by store
+  const grByStore = grRecords.reduce((acc, r) => {
+    if (!acc[r.site]) acc[r.site] = [];
+    acc[r.site].push(r);
+    return acc;
+  }, {});
+
+  const isGrConfirmed = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
+
+  function handleSelectStock(key, store) {
+    setSelectedKey(key);
+    setSelectedStore(store);
+    setDetailTab('stock');
+  }
+
+  function handleSelectGr(store) {
+    setSelectedKey(null);
+    setSelectedStore(store);
+    setDetailTab('gr');
+  }
+
+  function handleBackToList() {
+    setSelectedKey(null);
+    setSelectedStore(null);
+  }
+
+
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
@@ -194,6 +223,9 @@ export default function PicDashboard({ pic, stocks, setStocks, loading, error, o
               </button>
               </>
             )}
+            {onSwitchGr && (
+              <button className={styles.progressBtn} onClick={onSwitchGr}>Nhập kho</button>
+            )}
             {onSwitchProgress && (
               <button className={styles.progressBtn} onClick={onSwitchProgress}>Tổng quan</button>
             )}
@@ -204,7 +236,7 @@ export default function PicDashboard({ pic, stocks, setStocks, loading, error, o
 
       <div className={styles.masterDetail}>
         {/* ── LEFT: List panel ── */}
-        <div className={`${styles.listPanel} ${selectedKey ? styles.listPanelMobileHidden : ''}`}>
+        <div className={`${styles.listPanel} ${selectedStore ? styles.listPanelMobileHidden : ''}`}>
           {loading && <div className={styles.center}><span className={styles.spinner} /></div>}
           {error   && <p className={styles.errorMsg}>{error}</p>}
 
@@ -287,47 +319,104 @@ export default function PicDashboard({ pic, stocks, setStocks, loading, error, o
               )}
 
               <div className={styles.storeList}>
-                {displayedGroups.map(group => (
-                  <div key={group.store} className={styles.storeGroup}>
-                    <div className={styles.storeHeader}>
-                      <span className={styles.storeCode}>{group.store}</span>
-                      <span className={styles.storeName}>{group.store_name}</span>
-                      <span className={styles.storeBadge}>
-                        {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
-                        /{group.items.length} XN
-                      </span>
-                    </div>
+                {displayedGroups.map(group => {
+                  const grItems = grByStore[group.store] || [];
+                  const grPending = grItems.filter(r => !isGrConfirmed(r)).length;
+                  const grDone = grItems.length - grPending;
+                  const grRate = grItems.length > 0 ? Math.round(grDone / grItems.length * 100) : 0;
+                  return (
+                    <div key={group.store} className={styles.storeGroup}>
+                      <div className={styles.storeHeader}>
+                        <span className={styles.storeCode}>{group.store}</span>
+                        <span className={styles.storeName}>{group.store_name}</span>
+                        <span className={styles.storeBadge}>
+                          {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
+                          /{group.items.length} XN
+                        </span>
+                        <button
+                          className={`${styles.grStatsRow} ${grPending > 0 ? styles.grStatsRowPending : ''}`}
+                          onClick={e => { e.stopPropagation(); handleSelectGr(group.store); }}
+                        >
+                          <span className={styles.grStatCol}>
+                            <span className={`${styles.grStatColNum} ${grPending > 0 ? styles.grStatColNumPending : styles.grStatColNumDone}`}>{grPending}</span>
+                            <span className={styles.grStatColLabel}>PO chờ</span>
+                          </span>
+                          <span className={styles.grStatCol}>
+                            <span className={`${styles.grStatColNum} ${styles.grStatColNumDone}`}>{grDone}</span>
+                            <span className={styles.grStatColLabel}>Đã XN</span>
+                          </span>
+                          <span className={styles.grStatCol}>
+                            <span className={`${styles.grStatColNum} ${styles.grStatColNumRate}`}>{grRate}%</span>
+                            <span className={styles.grStatColLabel}>Tỷ lệ</span>
+                          </span>
+                        </button>
+                      </div>
 
-                    {group.items.map(stock => {
-                      const key = `${stock.store}-${stock.article}`;
-                      const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
-                      return (
-                        <StockRow
-                          key={key}
-                          stock={stock}
-                          isConfirmed={isConfirmed}
-                          isSelected={selectedKey === key}
-                          hasUnsaved={!!localChanges[key]}
-                          onClick={() => setSelectedKey(key)}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
+                      {group.items.map(stock => {
+                        const key = `${stock.store}-${stock.article}`;
+                        const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
+                        return (
+                          <StockRow
+                            key={key}
+                            stock={stock}
+                            isConfirmed={isConfirmed}
+                            isSelected={selectedKey === key}
+                            hasUnsaved={!!localChanges[key]}
+                            onClick={() => handleSelectStock(key, stock.store)}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
         </div>
 
         {/* ── RIGHT: Detail pane ── */}
-        <div className={`${styles.detailPane} ${selectedKey ? styles.detailPaneVisible : ''}`}>
-          {currentSelectedStock ? (
-            <DetailPanel
-              stock={currentSelectedStock}
-              onBack={() => setSelectedKey(null)}
-              onLocalChange={handleLocalChange}
-              hasUnsaved={!!localChanges[selectedKey]}
-            />
+        <div className={`${styles.detailPane} ${selectedStore ? styles.detailPaneVisible : ''}`}>
+          {selectedStore ? (
+            <>
+              {/* Tab bar */}
+              <div className={styles.detailTabs}>
+                <button
+                  className={`${styles.detailTabBtn} ${detailTab === 'stock' ? styles.detailTabActive : ''}`}
+                  onClick={() => setDetailTab('stock')}
+                >Tồn kho</button>
+                <button
+                  className={`${styles.detailTabBtn} ${detailTab === 'gr' ? styles.detailTabActive : ''}`}
+                  onClick={() => setDetailTab('gr')}
+                >
+                  Phiếu NK
+                  {(() => { const p = (grByStore[selectedStore] || []).filter(r => !isGrConfirmed(r)).length; return p > 0 ? <span className={styles.detailTabBadge}>{p}</span> : null; })()}
+                </button>
+              </div>
+
+              {detailTab === 'stock' ? (
+                currentSelectedStock ? (
+                  <DetailPanel
+                    stock={currentSelectedStock}
+                    onBack={handleBackToList}
+                    onLocalChange={handleLocalChange}
+                    hasUnsaved={!!localChanges[selectedKey]}
+                  />
+                ) : (
+                  <div className={styles.detailPlaceholder}>
+                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 12h6M9 16h6M7 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 4h6a1 1 0 010 2H9a1 1 0 010-2z"
+                        stroke="#bdc1c6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <p className={styles.placeholderText}>Chọn sản phẩm để xem chi tiết</p>
+                  </div>
+                )
+              ) : (
+                <GrDetailPane
+                  records={grByStore[selectedStore] || []}
+                  onBack={handleBackToList}
+                />
+              )}
+            </>
           ) : (
             <div className={styles.detailPlaceholder}>
               <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
@@ -606,6 +695,85 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
   );
 }
 
+/* ─────────────────────────────────────────
+   GrDetailPane — GR records for a store
+───────────────────────────────────────── */
+function GrDetailPane({ records, onBack }) {
+  const isGrConfirmedFn = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
+  const confirmedCount = records.filter(isGrConfirmedFn).length;
+
+  return (
+    <div className={styles.detailPanelInner}>
+      <div className={styles.detailPanelHeader}>
+        <button className={styles.backBtn} onClick={onBack}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Danh sách
+        </button>
+        <div className={styles.detailTitleRow}>
+          <h2 className={styles.detailArticleName}>Phiếu nhập kho</h2>
+          <span className={styles.badge} style={{ background: '#e6f4ea', color: '#137333' }}>
+            {confirmedCount}/{records.length} đã XN
+          </span>
+        </div>
+      </div>
+
+      {records.length === 0 ? (
+        <div className={styles.grEmptyPane}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <path d="M9 12h6M9 16h6M7 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 4h6a1 1 0 010 2H9a1 1 0 010-2z"
+              stroke="#bdc1c6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p>Cửa hàng này không có phiếu nhập kho</p>
+        </div>
+      ) : (
+        <div className={styles.grPane}>
+          {records.map(r => {
+            const isDone = isGrConfirmedFn(r);
+            return (
+              <div key={r.po_number}
+                className={`${styles.grRecord} ${isDone ? styles.grRecordConfirmed : styles.grRecordPending}`}
+              >
+                <div className={styles.grRecordTop}>
+                  <span className={styles.grPoNum}>PO {r.po_number}</span>
+                  <span className={`${styles.grBadgeSmall} ${isDone ? styles.grBadgeSmallDone : styles.grBadgeSmallPending}`}>
+                    {isDone ? '✓ Đã XN' : 'Chờ XN'}
+                  </span>
+                </div>
+                <p className={styles.grProductName}>{r.product || r.vendor_name || '—'}</p>
+                <div className={styles.grMeta}>
+                  <span className={styles.grMetaItem}>
+                    PO: {fmtAmount(r.po_amount)} {r.currency || 'VND'}
+                  </span>
+                  {isDone && (
+                    <span className={styles.grMetaItem}>
+                      Nhận: <strong>{r.confirmed_amount ? Number(r.confirmed_amount).toLocaleString('vi-VN') : '0'}</strong>
+                    </span>
+                  )}
+                  {r.time_stamp && (
+                    <span className={styles.grMetaItem}>{formatDateTime(r.time_stamp)}</span>
+                  )}
+                </div>
+                {(r.pic_status || r.pic_comment) && (
+                  <div className={styles.grPicCommentBox}>
+                    {r.pic_status && (
+                      <span className={styles.grMetaItem} style={{ fontWeight: 600 }}>
+                        PIC: {r.pic_status === 'ok' ? 'OK' : r.pic_status === 'xlvp' ? 'XLVP' : 'Xác minh thêm'}
+                      </span>
+                    )}
+                    {r.pic_comment && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#444' }}>{r.pic_comment}</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function normalizeRisk(risk) {
   if (!risk) return '';
   const r = String(risk).toLowerCase().trim();
@@ -797,6 +965,12 @@ function formatDateTime(val) {
   const d = new Date(val);
   if (isNaN(d)) return String(val);
   return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtAmount(val) {
+  if (!val && val !== 0) return '—';
+  const n = Number(String(val).replace(/[^\d.-]/g, ''));
+  return isNaN(n) ? '—' : n.toLocaleString('vi-VN');
 }
 
 function normalizePhone(raw) {

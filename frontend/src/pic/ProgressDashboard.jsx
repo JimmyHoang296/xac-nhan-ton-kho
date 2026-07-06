@@ -1,20 +1,25 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchProgress } from '../api';
+import { fetchProgress, fetchAllGr } from '../api';
 import styles from './ProgressDashboard.module.css';
 
 export default function ProgressDashboard({ pic, onLogout }) {
-  const [data,     setData]     = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
-  const [expKstt,  setExpKstt]  = useState({});
-  const [sort,     setSort]     = useState({ col: null, dir: 'asc' });
+  const [data,       setData]       = useState(null);
+  const [grRecords,  setGrRecords]  = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [expKstt,    setExpKstt]    = useState({});
+  const [sort,       setSort]       = useState({ col: null, dir: 'asc' });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetchProgress(pic);
+      const [res, grRes] = await Promise.all([
+        fetchProgress(pic),
+        fetchAllGr().catch(() => ({ records: [] })),
+      ]);
       setData(res);
+      setGrRecords(grRes.records || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -24,7 +29,7 @@ export default function ProgressDashboard({ pic, onLogout }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const groups = data ? buildGroups(data) : [];
+  const groups = data ? buildGroups(data, grRecords) : [];
 
   // Expand all PIC by default on first load
   useEffect(() => {
@@ -41,8 +46,10 @@ export default function ProgressDashboard({ pic, onLogout }) {
     acc.articles   += g.articles;
     acc.artDone    += g.artDone;
     acc.reviewed   += g.reviewed;
+    acc.grTotal    += g.grTotal;
+    acc.grDone     += g.grDone;
     return acc;
-  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 });
+  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 });
 
   function togglePic(pic) {
     setExpKstt(prev => ({ ...prev, [pic]: !prev[pic] }));
@@ -95,6 +102,9 @@ export default function ProgressDashboard({ pic, onLogout }) {
               sub={pct(grandTotal.artDone, grandTotal.articles)} />
             <SummaryCard label="Đã thẩm định" value={grandTotal.reviewed} color="blue"
               sub={pct(grandTotal.reviewed, grandTotal.artDone)} />
+            <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
+            <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
+              sub={pct(grandTotal.grDone, grandTotal.grTotal)} />
           </div>
         )}
       </header>
@@ -128,6 +138,9 @@ export default function ProgressDashboard({ pic, onLogout }) {
                   <SortTh col="pct"        sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ XN</SortTh>
                   <SortTh col="reviewed"   sort={sort} onSort={handleSort} cls={styles.thNum}>Đã TĐ</SortTh>
                   <SortTh col="reviewPct"  sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ TĐ</SortTh>
+                  <SortTh col="grPending"  sort={sort} onSort={handleSort} cls={styles.thNum}>PO chờ</SortTh>
+                  <SortTh col="grDone"     sort={sort} onSort={handleSort} cls={styles.thNum}>PO đã XN</SortTh>
+                  <SortTh col="grPct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ PO</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -159,6 +172,19 @@ export default function ProgressDashboard({ pic, onLogout }) {
                       <td className={styles.pctCell}>
                         <ProgressBar value={picGroup.reviewed} total={picGroup.artDone} color="blue" />
                       </td>
+                      <td className={styles.numCell}>
+                        <span className={picGroup.grTotal - picGroup.grDone > 0 ? styles.numPending : ''}>
+                          {picGroup.grTotal - picGroup.grDone}
+                        </span>
+                      </td>
+                      <td className={styles.numCell}>
+                        <span className={isDone(picGroup.grDone, picGroup.grTotal) ? styles.numDone : ''}>
+                          {picGroup.grDone}
+                        </span>
+                      </td>
+                      <td className={styles.pctCell}>
+                        <ProgressBar value={picGroup.grDone} total={picGroup.grTotal} color="blue" />
+                      </td>
                     </tr>
 
                     {/* ── QLKV rows ── */}
@@ -184,6 +210,19 @@ export default function ProgressDashboard({ pic, onLogout }) {
                         <td className={styles.pctCell}>
                           <ProgressBar value={q.reviewed} total={q.artDone} color="blue" />
                         </td>
+                        <td className={styles.numCell}>
+                          <span className={q.grTotal - q.grDone > 0 ? styles.numPending : ''}>
+                            {q.grTotal - q.grDone}
+                          </span>
+                        </td>
+                        <td className={styles.numCell}>
+                          <span className={isDone(q.grDone, q.grTotal) ? styles.numDone : ''}>
+                            {q.grDone}
+                          </span>
+                        </td>
+                        <td className={styles.pctCell}>
+                          <ProgressBar value={q.grDone} total={q.grTotal} color="blue" />
+                        </td>
                       </tr>
                     ))}
                   </React.Fragment>
@@ -200,7 +239,7 @@ export default function ProgressDashboard({ pic, onLogout }) {
 function SummaryCard({ label, value, color, sub }) {
   return (
     <div className={styles.summaryCard}>
-      <span className={`${styles.summaryNum} ${color === 'green' ? styles.summaryNumGreen : color === 'blue' ? styles.summaryNumBlue : ''}`}>{value}</span>
+      <span className={`${styles.summaryNum} ${color === 'green' ? styles.summaryNumGreen : color === 'blue' ? styles.summaryNumBlue : color === 'orange' ? styles.summaryNumOrange : ''}`}>{value}</span>
       <span className={styles.summaryLabel}>{label}</span>
       {sub && <span className={styles.summarySub}>{sub}</span>}
     </div>
@@ -239,10 +278,12 @@ function sortGroups(groups, { col, dir }) {
   const sign = dir === 'asc' ? 1 : -1;
   return [...groups].sort((a, b) => {
     let va, vb;
-    if (col === 'name')          { va = a.pic;        vb = b.pic; }
-    else if (col === 'pct')      { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
+    if (col === 'name')           { va = a.pic;        vb = b.pic; }
+    else if (col === 'pct')       { va = a.articles ? a.artDone / a.articles : 0; vb = b.articles ? b.artDone / b.articles : 0; }
     else if (col === 'reviewPct') { va = a.artDone ? a.reviewed / a.artDone : 0; vb = b.artDone ? b.reviewed / b.artDone : 0; }
-    else                         { va = a[col] ?? 0;  vb = b[col] ?? 0; }
+    else if (col === 'grPending') { va = a.grTotal - a.grDone; vb = b.grTotal - b.grDone; }
+    else if (col === 'grPct')     { va = a.grTotal ? a.grDone / a.grTotal : 0; vb = b.grTotal ? b.grDone / b.grTotal : 0; }
+    else                          { va = a[col] ?? 0;  vb = b[col] ?? 0; }
     if (typeof va === 'string') return sign * va.localeCompare(vb, 'vi');
     return sign * (va - vb);
   });
@@ -251,7 +292,7 @@ function sortGroups(groups, { col, dir }) {
 function isDone(a, b) { return b > 0 && a === b; }
 function pct(a, b)    { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
-function buildGroups({ stocks, storeMap }) {
+function buildGroups({ stocks, storeMap }, grRecords) {
   // Per-store: total articles + done + pic
   const storeArt = {};
   stocks.forEach(s => {
@@ -262,15 +303,25 @@ function buildGroups({ stocks, storeMap }) {
     if (s.pic) storeArt[s.store].pics.add(s.pic);
   });
 
+  // GR per store
+  const grBySite = {};
+  (grRecords || []).forEach(r => {
+    const key = String(r.site);
+    if (!grBySite[key]) grBySite[key] = { total: 0, done: 0 };
+    grBySite[key].total++;
+    if (r.time_stamp && r.time_stamp !== '') grBySite[key].done++;
+  });
+
   // Aggregate PIC → QLKV
   const picMap = {};
   Object.entries(storeArt).forEach(([storeCode, { total, done, reviewed, pics }]) => {
     const info = storeMap[storeCode] || {};
     const qlkv = info.qlkv || 'Chưa phân công';
     const pic  = pics.size > 0 ? [...pics][0] : '';
+    const gr   = grBySite[storeCode] || { total: 0, done: 0 };
 
     if (!picMap[pic]) picMap[pic] = {};
-    if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 };
+    if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 };
 
     const cell = picMap[pic][qlkv];
     cell.stores++;
@@ -278,6 +329,8 @@ function buildGroups({ stocks, storeMap }) {
     cell.articles += total;
     cell.artDone  += done;
     cell.reviewed += reviewed;
+    cell.grTotal  += gr.total;
+    cell.grDone   += gr.done;
   });
 
   return Object.entries(picMap)
@@ -293,8 +346,10 @@ function buildGroups({ stocks, storeMap }) {
         acc.articles   += q.articles;
         acc.artDone    += q.artDone;
         acc.reviewed   += q.reviewed;
+        acc.grTotal    += q.grTotal;
+        acc.grDone     += q.grDone;
         return acc;
-      }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0 });
+      }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 });
 
       return { pic, qlkvList, ...tot };
     });
