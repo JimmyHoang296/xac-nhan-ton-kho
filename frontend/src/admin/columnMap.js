@@ -3,6 +3,28 @@
 // Thứ tự phần tử = thứ tự cột khi xuất Excel.
 
 export const TABLES = {
+  gr_records: [
+    ['Tuyến', 'tuyen'],
+    ['Vendor', 'vendor'],
+    ['Vendor Name', 'vendor_name'],
+    ['Purchasing Document', 'po_number'],
+    ['Site', 'site'],
+    ['Document Date', 'document_date'],
+    ['Created By', 'created_by'],
+    ['Currency', 'currency'],
+    ['PO Amount', 'po_amount'],
+    ['Sản phẩm', 'product'],
+    ['Note', 'original_note'],
+    ['pic', 'pic'],
+    ['confirmed_amount', 'confirmed_amount'],
+    ['confirm_note', 'confirm_note'],
+    ['time_stamp', 'time_stamp'],
+    ['lat', 'lat'],
+    ['long', 'long'],
+    ['image', 'image'],
+    ['pic_comment', 'pic_comment'],
+    ['pic_status', 'pic_status'],
+  ],
   stocks: [
     ['store', 'store'],
     ['store_name', 'store_name'],
@@ -54,12 +76,14 @@ export const TABLES = {
   ],
 };
 
-// Tên sheet trong Excel → tên bảng DB (whitelist phía backend: stocks/stores/pic/qlkv)
+// Tên sheet trong Excel → tên bảng DB
 export const SHEET_TO_TABLE = {
   stocks: 'stocks',
   stores: 'stores',
   pic: 'pic',
   qlkv: 'qlkv',
+  gr_records: 'gr_records',
+  'tổng hợp po': 'gr_records',  // sheet gốc từ file báo cáo
 };
 
 // Đổi 1 dòng từ DB-keyed → Excel-header-keyed (export)

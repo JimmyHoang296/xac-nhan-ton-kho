@@ -54,7 +54,7 @@ export default function AdminPanel({ password, onLogout }) {
         out[table] = raw.map(row => excelRowToDb(table, row, pairs));
       }
       if (Object.keys(out).length === 0) {
-        throw new Error('File không có sheet hợp lệ (stocks / stores / PIC / qlkv).');
+        throw new Error('File không có sheet hợp lệ (stocks / stores / PIC / qlkv / gr_records / Tổng hợp PO).');
       }
       setParsed(out);
     } catch (err) {
@@ -107,8 +107,9 @@ export default function AdminPanel({ password, onLogout }) {
       <section style={S.card}>
         <h2 style={S.h2}>2. Nạp dữ liệu mới từ Excel</h2>
         <p style={S.p}>
-          Chọn file .xlsx. Mỗi sheet (stocks / stores / PIC / qlkv) sẽ <b>thay thế toàn bộ</b> bảng
-          tương ứng. <b>Hãy tải Excel sao lưu ở bước 1 trước khi nạp.</b>
+          Chọn file .xlsx. Mỗi sheet (stocks / stores / PIC / qlkv / gr_records / Tổng hợp PO) sẽ{' '}
+          <b>thay thế toàn bộ</b> bảng tương ứng.{' '}
+          <b>Hãy tải Excel sao lưu ở bước 1 trước khi nạp.</b>
         </p>
         <input type="file" accept=".xlsx,.xls" onChange={handleFile} disabled={!!busy} style={S.file} />
         {fileName && <p style={S.fileName}>📄 {fileName}</p>}

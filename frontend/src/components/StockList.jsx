@@ -1,21 +1,23 @@
 import styles from './StockList.module.css';
 
-export default function StockList({ storeName, storeCode, stocks, onCardClick }) {
+export default function StockList({ storeName, storeCode, stocks, onCardClick, hideHeader }) {
   const pending = stocks.filter(s => s.counted_stock === '' || s.counted_stock === null || s.counted_stock === undefined);
   const confirmed = stocks.filter(s => s.counted_stock !== '' && s.counted_stock !== null && s.counted_stock !== undefined);
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.header}>
-        <div className={styles.storeTag}>{storeCode}</div>
-        <h2 className={styles.storeName}>{storeName}</h2>
-        <p className={styles.instruction}>Hướng dẫn: Chọn vào sản phẩm trong danh sách, nhập số tồn và hình ảnh chứa phần lớn sản phẩm cần xác minh</p>
-        <div className={styles.stats}>
-          <span className={styles.statPending}>{pending.length} chờ xác nhận</span>
-          <span className={styles.dot}>·</span>
-          <span className={styles.statDone}>{confirmed.length} đã xác nhận</span>
+      {!hideHeader && (
+        <div className={styles.header}>
+          <div className={styles.storeTag}>{storeCode}</div>
+          <h2 className={styles.storeName}>{storeName}</h2>
+          <p className={styles.instruction}>Hướng dẫn: Chọn vào sản phẩm trong danh sách, nhập số tồn và hình ảnh chứa phần lớn sản phẩm cần xác minh</p>
+          <div className={styles.stats}>
+            <span className={styles.statPending}>{pending.length} chờ xác nhận</span>
+            <span className={styles.dot}>·</span>
+            <span className={styles.statDone}>{confirmed.length} đã xác nhận</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {pending.length === 0 ? (
         <div className={styles.empty}>
