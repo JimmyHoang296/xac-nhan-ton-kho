@@ -293,14 +293,13 @@ function isDone(a, b) { return b > 0 && a === b; }
 function pct(a, b)    { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
 function buildGroups({ stocks, storeMap }, grRecords) {
-  // Per-store: total articles + done + pic
+  // Per-store: total articles + done
   const storeArt = {};
   stocks.forEach(s => {
-    if (!storeArt[s.store]) storeArt[s.store] = { total: 0, done: 0, reviewed: 0, pics: new Set() };
+    if (!storeArt[s.store]) storeArt[s.store] = { total: 0, done: 0, reviewed: 0 };
     storeArt[s.store].total++;
     if (s.counted_stock !== null && s.counted_stock !== '') storeArt[s.store].done++;
     if (s.pic_status && s.pic_status !== '') storeArt[s.store].reviewed++;
-    if (s.pic) storeArt[s.store].pics.add(s.pic);
   });
 
   // GR per store
@@ -312,18 +311,24 @@ function buildGroups({ stocks, storeMap }, grRecords) {
     if (r.time_stamp && r.time_stamp !== '') grBySite[key].done++;
   });
 
-  // Aggregate PIC → QLKV
   const picMap = {};
-  Object.entries(storeArt).forEach(([storeCode, { total, done, reviewed, pics }]) => {
-    const info = storeMap[storeCode] || {};
-    const qlkv = info.qlkv || 'Chưa phân công';
-    const pic  = pics.size > 0 ? [...pics][0] : '';
-    const gr   = grBySite[storeCode] || { total: 0, done: 0 };
 
+  function ensureCell(pic, qlkv) {
     if (!picMap[pic]) picMap[pic] = {};
     if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 };
+    return picMap[pic][qlkv];
+  }
 
-    const cell = picMap[pic][qlkv];
+  // Aggregate stores có stocks — dùng stores.kstt làm source of truth cho PIC
+  const stockStores = new Set();
+  Object.entries(storeArt).forEach(([storeCode, { total, done, reviewed }]) => {
+    stockStores.add(storeCode);
+    const info = storeMap[storeCode] || {};
+    const qlkv = info.qlkv || 'Chưa phân công';
+    const pic  = info.kstt || '';
+    const gr   = grBySite[storeCode] || { total: 0, done: 0 };
+
+    const cell = ensureCell(pic, qlkv);
     cell.stores++;
     if (done === total) cell.storesDone++;
     cell.articles += total;
@@ -331,6 +336,18 @@ function buildGroups({ stocks, storeMap }, grRecords) {
     cell.reviewed += reviewed;
     cell.grTotal  += gr.total;
     cell.grDone   += gr.done;
+  });
+
+  // Aggregate GR-only stores — stores có PO nhưng không có stocks (bị bỏ qua trước đây)
+  Object.entries(grBySite).forEach(([storeCode, gr]) => {
+    if (stockStores.has(storeCode)) return;
+    const info = storeMap[storeCode] || {};
+    const qlkv = info.qlkv || 'Chưa phân công';
+    const pic  = info.kstt || '';
+
+    const cell = ensureCell(pic, qlkv);
+    cell.grTotal += gr.total;
+    cell.grDone  += gr.done;
   });
 
   return Object.entries(picMap)
