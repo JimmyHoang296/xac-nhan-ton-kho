@@ -10,6 +10,9 @@ export default function QlkvProgressView({ username, name, role, stocks, grRecor
   const rows = buildStoreRows(stocks, grRecords);
   const hierarchy = isManager ? buildProgressHierarchy(stocks, grRecords, role) : null;
 
+  const hierarchyGrandTotal = isManager && hierarchy
+    ? sumHierarchy(hierarchy) : null;
+
   const grandTotal = rows.reduce((acc, r) => {
     acc.articles += r.articles;
     acc.artDone  += r.artDone;
@@ -58,9 +61,10 @@ export default function QlkvProgressView({ username, name, role, stocks, grRecor
             <SummaryCard label="Tổng mã"  value={grandTotal.articles} />
             <SummaryCard label="Mã đã XN" value={grandTotal.artDone} color="green"
               sub={fmtPct(grandTotal.artDone, grandTotal.articles)} />
-            <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
-            <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
-              sub={fmtPct(grandTotal.grDone, grandTotal.grTotal)} />
+            <SummaryCard label="Tổng PO"  value={isManager ? (hierarchyGrandTotal?.grTotal ?? 0) : grandTotal.grTotal} />
+            <SummaryCard label="PO đã XN" value={isManager ? (hierarchyGrandTotal?.grDone ?? 0) : grandTotal.grDone} color="green"
+              sub={fmtPct(isManager ? (hierarchyGrandTotal?.grDone ?? 0) : grandTotal.grDone,
+                          isManager ? (hierarchyGrandTotal?.grTotal ?? 0) : grandTotal.grTotal)} />
           </div>
         )}
       </header>
@@ -182,9 +186,6 @@ function fmtPct(a, b) { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
 /* ─── Hierarchy for progress view ─── */
 function buildProgressHierarchy(stocks, grRecords = [], role) {
-  // gdv: QLKV → stores
-  // gdm: GDV → QLKV → stores
-  // gdc: GDM → GDV → QLKV → stores
   var levels;
   if (role === 'gdv') levels = ['qlkv'];
   else if (role === 'gdm') levels = ['gdv', 'qlkv'];
@@ -193,13 +194,24 @@ function buildProgressHierarchy(stocks, grRecords = [], role) {
 
   const LEVEL_LABELS = { qlkv: 'QLKV', gdv: 'GDV', gdm: 'GDM', gdc: 'GDC' };
 
+  const grByStore = {};
+  grRecords.forEach(r => {
+    const key = String(r.site);
+    if (!grByStore[key]) grByStore[key] = { total: 0, done: 0 };
+    grByStore[key].total++;
+    if (r.time_stamp && r.time_stamp !== '') grByStore[key].done++;
+  });
+
   function buildLevel(items, levelIdx) {
     if (levelIdx >= levels.length) {
-      // leaf: build store rows
       const map = {};
       items.forEach(s => {
         const key = String(s.store);
-        if (!map[key]) map[key] = { store: key, store_name: s.store_name || '', articles: 0, artDone: 0 };
+        if (!map[key]) map[key] = {
+          store: key, store_name: s.store_name || '', articles: 0, artDone: 0,
+          grTotal: grByStore[key]?.total || 0,
+          grDone:  grByStore[key]?.done  || 0,
+        };
         map[key].articles++;
         if (s.counted_stock !== null && s.counted_stock !== '') map[key].artDone++;
       });
@@ -216,12 +228,13 @@ function buildProgressHierarchy(stocks, grRecords = [], role) {
       .sort(([a], [b]) => a.localeCompare(b, 'vi'))
       .map(([name, groupItems]) => {
         const articles = groupItems.length;
-        const artDone = groupItems.filter(s => s.counted_stock !== null && s.counted_stock !== '').length;
+        const artDone  = groupItems.filter(s => s.counted_stock !== null && s.counted_stock !== '').length;
+        const storeSet = [...new Set(groupItems.map(s => String(s.store)))];
+        const grTotal  = storeSet.reduce((n, k) => n + (grByStore[k]?.total || 0), 0);
+        const grDone   = storeSet.reduce((n, k) => n + (grByStore[k]?.done  || 0), 0);
         return {
-          name,
-          roleLabel: LEVEL_LABELS[field] || field.toUpperCase(),
-          articles,
-          artDone,
+          name, roleLabel: LEVEL_LABELS[field] || field.toUpperCase(),
+          articles, artDone, grTotal, grDone,
           children: buildLevel(groupItems, levelIdx + 1),
           isLeaf: levelIdx === levels.length - 1,
         };
@@ -229,6 +242,14 @@ function buildProgressHierarchy(stocks, grRecords = [], role) {
   }
 
   return buildLevel(stocks, 0);
+}
+
+function sumHierarchy(nodes) {
+  return nodes.reduce((acc, n) => {
+    acc.grTotal += n.grTotal || 0;
+    acc.grDone  += n.grDone  || 0;
+    return acc;
+  }, { grTotal: 0, grDone: 0 });
 }
 
 function HierarchyProgressNode({ node, sort, onSort, depth }) {
@@ -247,6 +268,13 @@ function HierarchyProgressNode({ node, sort, onSort, depth }) {
         <span className={styles.qlkvGroupName}>{node.name}</span>
         <span className={styles.qlkvGroupStats}>
           {node.artDone}/{node.articles} mã · {pct}%
+          {node.grTotal > 0 && (
+            <span className={styles.qlkvGroupGr}>
+              {' · '}PO: <span className={node.grTotal - node.grDone > 0 ? styles.numPending : styles.numDone}>
+                {node.grDone}/{node.grTotal}
+              </span>
+            </span>
+          )}
         </span>
         <ProgressBar value={node.artDone} total={node.articles} />
       </button>
@@ -255,10 +283,13 @@ function HierarchyProgressNode({ node, sort, onSort, depth }) {
           <table className={styles.table}>
             <thead>
               <tr>
-                <SortTh col="store"    sort={sort} onSort={onSort} cls={styles.thName}>Cửa hàng</SortTh>
-                <SortTh col="articles" sort={sort} onSort={onSort} cls={styles.thNum}>Số mã</SortTh>
-                <SortTh col="artDone"  sort={sort} onSort={onSort} cls={styles.thNum}>Mã đã XN</SortTh>
-                <SortTh col="pct"      sort={sort} onSort={onSort} cls={styles.thPct}>Tiến độ</SortTh>
+                <SortTh col="store"     sort={sort} onSort={onSort} cls={styles.thName}>Cửa hàng</SortTh>
+                <SortTh col="articles"  sort={sort} onSort={onSort} cls={styles.thNum}>Số mã</SortTh>
+                <SortTh col="artDone"   sort={sort} onSort={onSort} cls={styles.thNum}>Mã đã XN</SortTh>
+                <SortTh col="pct"       sort={sort} onSort={onSort} cls={styles.thPct}>Tiến độ</SortTh>
+                <SortTh col="grPending" sort={sort} onSort={onSort} cls={styles.thNum}>PO chờ</SortTh>
+                <SortTh col="grDone"    sort={sort} onSort={onSort} cls={styles.thNum}>PO đã XN</SortTh>
+                <SortTh col="grPct"     sort={sort} onSort={onSort} cls={styles.thPct}>Tỷ lệ PO</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -274,6 +305,15 @@ function HierarchyProgressNode({ node, sort, onSort, depth }) {
                   </td>
                   <td className={styles.pctCell}>
                     <ProgressBar value={r.artDone} total={r.articles} />
+                  </td>
+                  <td className={styles.numCell}>
+                    <span className={r.grTotal - r.grDone > 0 ? styles.numPending : ''}>{r.grTotal - r.grDone}</span>
+                  </td>
+                  <td className={styles.numCell}>
+                    <span className={r.grDone === r.grTotal && r.grTotal > 0 ? styles.numDone : ''}>{r.grDone}</span>
+                  </td>
+                  <td className={styles.pctCell}>
+                    <ProgressBar value={r.grDone} total={r.grTotal} />
                   </td>
                 </tr>
               ))}

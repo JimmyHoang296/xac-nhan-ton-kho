@@ -505,6 +505,11 @@
   flex-shrink: 0;
 }
 
+.qlkvGroupGr {
+  font-size: 12px;
+  color: #5f6368;
+}
+
 /* ── Spinner ── */
 .spinner {
   width: 28px;
