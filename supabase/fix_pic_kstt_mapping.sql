@@ -35,13 +35,14 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
         'kstt',           COALESCE(st.kstt, '')
       ))
       FROM stores st
-      JOIN stocks s ON s.store::text = st.store::text
-      WHERE BTRIM(st.kstt) = BTRIM(p_pic)
+      JOIN stocks s ON LOWER(BTRIM(s.store)) = LOWER(BTRIM(st.store))
+      WHERE LOWER(BTRIM(st.kstt)) = LOWER(BTRIM(p_pic))
     ), '[]'::jsonb)
   );
 $$;
 
--- ── get_pic_gr: filter theo stores.kstt thay vì gr_records.pic ─────────────
+-- ── get_pic_gr: filter theo stores.kstt (gr_records.pic rỗng, stores.kstt đầy đủ) ──
+-- Dùng BTRIM + LOWER cả hai vế để tránh lỗi khoảng trắng / hoa thường.
 CREATE OR REPLACE FUNCTION get_pic_gr(p_pic text)
 RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   SELECT jsonb_build_object(
@@ -71,8 +72,8 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
         'kstt',             COALESCE(st.kstt,     '')
       ))
       FROM stores st
-      JOIN gr_records g ON g.site::text = st.store::text
-      WHERE BTRIM(st.kstt) = BTRIM(p_pic)
+      JOIN gr_records g ON LOWER(BTRIM(g.site)) = LOWER(BTRIM(st.store))
+      WHERE LOWER(BTRIM(st.kstt)) = LOWER(BTRIM(p_pic))
     ), '[]'::jsonb)
   );
 $$;
