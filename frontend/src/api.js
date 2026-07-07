@@ -45,6 +45,7 @@ export async function fetchPicStocks(pic) {
   return rpc('get_pic_stocks', { p_pic: pic });
 }
 
+
 export async function savePicComment(pic, store, article, comment, pic_status) {
   return rpc('save_pic_comment', {
     p_pic: pic, p_store: String(store), p_article: String(article),
