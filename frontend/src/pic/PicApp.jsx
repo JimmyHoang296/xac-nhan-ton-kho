@@ -84,3 +84,4 @@ export default function PicApp() {
 
   return <PicProgressView {...shared} onViewDetail={() => switchView('detail')} onViewGr={() => switchView('gr')} />;
 }
+

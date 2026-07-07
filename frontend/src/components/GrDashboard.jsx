@@ -8,6 +8,12 @@ export default function GrDashboard({
   onRefresh, onLogout, onSwitchProgress, onSwitchStock,
   headerLabel = 'Nhập kho',
 }) {
+  // Build store info map from grRecords themselves (cht/qlkv come from SQL join)
+  const storeInfoMap = grRecords.reduce((map, r) => {
+    const key = String(r.site).trim();
+    if (!map[key]) map[key] = { cht: r.cht || '', sdt_cht: r.sdt_cht || '', qlkv: r.qlkv || '', sdt_qlkv: r.sdt_qlkv || '' };
+    return map;
+  }, {});
   const [selectedKey, setSelectedKey] = useState(null);
   const [filter, setFilter]           = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -188,7 +194,11 @@ export default function GrDashboard({
         {/* ── RIGHT ── */}
         <div className={`${styles.detailPane} ${selectedKey ? styles.detailPaneVisible : ''}`}>
           {currentRecord ? (
-            <GrRecordDetail record={currentRecord} onBack={() => setSelectedKey(null)} />
+            <GrRecordDetail
+              record={currentRecord}
+              storeInfo={storeInfoMap[String(currentRecord.site).trim()]}
+              onBack={() => setSelectedKey(null)}
+            />
           ) : (
             <div className={styles.detailPlaceholder}>
               <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
@@ -205,7 +215,7 @@ export default function GrDashboard({
 }
 
 /* ── Detail panel ── */
-function GrRecordDetail({ record, onBack }) {
+function GrRecordDetail({ record, storeInfo, onBack }) {
   const done = isGrConfirmed(record);
 
   return (
@@ -231,6 +241,33 @@ function GrRecordDetail({ record, onBack }) {
           <span className={styles.storeCode}>{record.site}</span>
           <span className={styles.detailStoreName}>{record.store_name || ''}</span>
         </div>
+
+        {storeInfo && (storeInfo.cht || storeInfo.qlkv) && (
+          <div className={styles.contactStrip}>
+            {storeInfo.cht && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>CHT</span>
+                <span className={styles.contactName}>{storeInfo.cht}</span>
+                {storeInfo.sdt_cht && (
+                  <a href={viberUrl(storeInfo.sdt_cht)} className={styles.contactPhone}>
+                    💬 {normalizePhone(storeInfo.sdt_cht)}
+                  </a>
+                )}
+              </span>
+            )}
+            {storeInfo.qlkv && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>QLKV</span>
+                <span className={styles.contactName}>{storeInfo.qlkv}</span>
+                {storeInfo.sdt_qlkv && (
+                  <a href={viberUrl(storeInfo.sdt_qlkv)} className={styles.contactPhone}>
+                    💬 {normalizePhone(storeInfo.sdt_qlkv)}
+                  </a>
+                )}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* PO info chips */}
@@ -315,4 +352,16 @@ function formatDateTime(val) {
   const d = new Date(val);
   if (isNaN(d)) return val;
   return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function normalizePhone(raw) {
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.startsWith('0') ? digits : '0' + digits;
+}
+
+function viberUrl(raw) {
+  const phone = normalizePhone(raw);
+  if (!phone) return '#';
+  return `viber://chat?number=${encodeURIComponent('+84' + phone.slice(1))}`;
 }

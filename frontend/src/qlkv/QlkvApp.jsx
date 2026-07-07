@@ -91,3 +91,4 @@ export default function QlkvApp() {
 
   return <QlkvProgressView {...shared} onViewDetail={() => switchView('detail')} onViewGr={() => switchView('gr')} />;
 }
+

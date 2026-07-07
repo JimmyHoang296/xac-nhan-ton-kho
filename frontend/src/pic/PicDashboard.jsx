@@ -224,14 +224,14 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
             </button>
             {!loading && !error && stocks.length > 0 && (
               <>
-              <button className={styles.downloadBtnQlkv} onClick={() => downloadExcelByQlkv(pic, stocks)} title="Tải Excel theo QLKV">
+              <button className={styles.downloadBtnQlkv} onClick={() => downloadExcelByQlkv(pic, stocks, grRecords)} title="Tải Excel theo QLKV">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M12 3v13M7 11l5 5 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M5 20h14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
                 <span>QLKV</span>
               </button>
-              <button className={styles.downloadBtn} onClick={() => downloadExcel(pic, stocks)} title="Tải Excel chi tiết">
+              <button className={styles.downloadBtn} onClick={() => downloadExcel(pic, stocks, grRecords)} title="Tải Excel chi tiết">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M12 3v13M7 11l5 5 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M5 20h14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
@@ -752,6 +752,13 @@ function GrDetailPane({ records, onBack }) {
   const isGrConfirmedFn = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
   const confirmedCount = records.filter(isGrConfirmedFn).length;
 
+  // Store contact info comes from records themselves (SQL join in get_pic_gr/get_qlkv_gr)
+  const r0 = records[0] || {};
+  const cht      = r0.cht      || '';
+  const sdtCht   = r0.sdt_cht  || '';
+  const qlkv     = r0.qlkv     || '';
+  const sdtQlkv  = r0.sdt_qlkv || '';
+
   return (
     <div className={styles.detailPanelInner}>
       <div className={styles.detailPanelHeader}>
@@ -761,12 +768,47 @@ function GrDetailPane({ records, onBack }) {
           </svg>
           Danh sách
         </button>
+
         <div className={styles.detailTitleRow}>
           <h2 className={styles.detailArticleName}>Phiếu nhập kho</h2>
           <span className={styles.badge} style={{ background: '#e6f4ea', color: '#137333' }}>
             {confirmedCount}/{records.length} đã XN
           </span>
         </div>
+
+        {r0.site && (
+          <div className={styles.detailStoreRow}>
+            <span className={styles.storeCode}>{r0.site}</span>
+            <span className={styles.detailStoreName}>{r0.store_name || ''}</span>
+          </div>
+        )}
+
+        {(cht || qlkv) && (
+          <div className={styles.contactStrip}>
+            {cht && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>CHT</span>
+                <span className={styles.contactName}>{cht}</span>
+                {sdtCht && (
+                  <a href={viberUrl(sdtCht)} className={styles.contactPhone}>
+                    💬 {normalizePhone(sdtCht)}
+                  </a>
+                )}
+              </span>
+            )}
+            {qlkv && (
+              <span className={styles.contactItem}>
+                <span className={styles.contactRole}>QLKV</span>
+                <span className={styles.contactName}>{qlkv}</span>
+                {sdtQlkv && (
+                  <a href={viberUrl(sdtQlkv)} className={styles.contactPhone}>
+                    💬 {normalizePhone(sdtQlkv)}
+                  </a>
+                )}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {records.length === 0 ? (
@@ -889,7 +931,7 @@ const PIC_STATUSES = [
   { value: 'xac_minh_them',  label: 'Xác minh thêm' },
 ];
 
-function downloadExcelByQlkv(pic, stocks) {
+function downloadExcelByQlkv(pic, stocks, grRecords = []) {
   // Group: qlkv → store → items
   const qlkvMap = {};
   stocks.forEach(s => {
@@ -900,47 +942,109 @@ function downloadExcelByQlkv(pic, stocks) {
     qlkvMap[qlkv][key].items.push(s);
   });
 
+  // GR map by site
+  const grBySite = {};
+  grRecords.forEach(r => {
+    const key = String(r.site);
+    if (!grBySite[key]) grBySite[key] = { total: 0, done: 0 };
+    grBySite[key].total++;
+    if (r.time_stamp && r.time_stamp !== '') grBySite[key].done++;
+  });
+
   const rows = [];
   const isConf = s => s.counted_stock !== null && s.counted_stock !== '';
 
   Object.entries(qlkvMap).sort(([a], [b]) => a.localeCompare(b, 'vi')).forEach(([qlkv, stores]) => {
-    const allItems = Object.values(stores).flatMap(s => s.items);
-    const confAll  = allItems.filter(isConf);
+    const allItems   = Object.values(stores).flatMap(s => s.items);
+    const confAll    = allItems.filter(isConf);
+    const grAll      = Object.keys(stores).reduce((s, k) => s + (grBySite[k]?.total || 0), 0);
+    const grDoneAll  = Object.keys(stores).reduce((s, k) => s + (grBySite[k]?.done  || 0), 0);
 
-    // QLKV tổng hợp row
     rows.push({
-      'Loại':        'QLKV',
-      'QLKV':        qlkv,
-      'Mã CH':       '',
-      'Tên CH':      '',
-      'Số mã':       allItems.length,
-      'Số mã đã XN': confAll.length,
+      'Loại':         'QLKV',
+      'QLKV':         qlkv,
+      'Mã CH':        '',
+      'Tên CH':       '',
+      'Mã SP':        '',
+      'Tên SP':       '',
+      'Tồn HT':       '',
+      'Tồn hiện tại': '',
+      'Tồn thực tế':  '',
+      'Chênh lệch':   '',
+      'Ghi chú NV':   '',
+      'PIC thẩm định':'',
+      'Comment PIC':  '',
+      'Thời gian XN': '',
+      'Số mã':        allItems.length,
+      'Số mã đã XN':  confAll.length,
+      'Tổng PO':      grAll,
+      'PO đã XN':     grDoneAll,
     });
 
-    // CH detail rows
     Object.entries(stores).sort(([a], [b]) => String(a).localeCompare(String(b))).forEach(([storeCode, { store_name, items }]) => {
-      const conf = items.filter(isConf);
+      const conf    = items.filter(isConf);
+      const grStore = grBySite[storeCode] || { total: 0, done: 0 };
+
+      // CH summary row
       rows.push({
-        'Loại':        'CH',
-        'QLKV':        qlkv,
-        'Mã CH':       storeCode,
-        'Tên CH':      store_name,
-        'Số mã':       items.length,
-        'Số mã đã XN': conf.length,
+        'Loại':         'CH',
+        'QLKV':         qlkv,
+        'Mã CH':        storeCode,
+        'Tên CH':       store_name,
+        'Mã SP':        '',
+        'Tên SP':       '',
+        'Tồn HT':       '',
+        'Tồn hiện tại': '',
+        'Tồn thực tế':  '',
+        'Chênh lệch':   '',
+        'Ghi chú NV':   '',
+        'PIC thẩm định':'',
+        'Comment PIC':  '',
+        'Thời gian XN': '',
+        'Số mã':        items.length,
+        'Số mã đã XN':  conf.length,
+        'Tổng PO':      grStore.total,
+        'PO đã XN':     grStore.done,
+      });
+
+      // Article detail rows
+      [...items].sort((a, b) => String(a.article).localeCompare(String(b.article))).forEach(s => {
+        rows.push({
+          'Loại':         'SP',
+          'QLKV':         qlkv,
+          'Mã CH':        storeCode,
+          'Tên CH':       store_name,
+          'Mã SP':        s.article,
+          'Tên SP':       s.article_name,
+          'Tồn HT':       s.stock ?? '',
+          'Tồn hiện tại': s.current_stock ?? '',
+          'Tồn thực tế':  s.counted_stock ?? '',
+          'Chênh lệch':   isConf(s) ? Number(s.counted_stock) - Number(s.current_stock || 0) : '',
+          'Ghi chú NV':   s.note ?? '',
+          'PIC thẩm định':PIC_STATUS_LABELS[s.pic_status] ?? '',
+          'Comment PIC':  s.pic_comment ?? '',
+          'Thời gian XN': s.time_stamp ?? '',
+          'Số mã':        '',
+          'Số mã đã XN':  '',
+          'Tổng PO':      '',
+          'PO đã XN':     '',
+        });
       });
     });
 
-    rows.push({ 'Loại': '', 'QLKV': '', 'Mã CH': '', 'Tên CH': '', 'Số mã': '', 'Số mã đã XN': '' });
+    rows.push({ 'Loại': '', 'QLKV': '', 'Mã CH': '', 'Tên CH': '', 'Mã SP': '', 'Tên SP': '', 'Tồn HT': '', 'Tồn hiện tại': '', 'Tồn thực tế': '', 'Chênh lệch': '', 'Ghi chú NV': '', 'PIC thẩm định': '', 'Comment PIC': '', 'Thời gian XN': '', 'Số mã': '', 'Số mã đã XN': '', 'Tổng PO': '', 'PO đã XN': '' });
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const colWidths = Object.keys(rows[0] || {}).map(key => ({
-    wch: Math.max(key.length, ...rows.map(r => String(r[key] ?? '').length)) + 2,
-  }));
-  ws['!cols'] = colWidths;
-
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Theo QLKV');
+
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  ws1['!cols'] = autoColWidths(rows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Theo QLKV');
+
+  if (grRecords.length > 0) {
+    const wsGr = buildGrSheet(grRecords);
+    XLSX.utils.book_append_sheet(wb, wsGr, 'Nhập kho PO');
+  }
 
   const today = new Date();
   const dateStr = `${String(today.getDate()).padStart(2,'0')}${String(today.getMonth()+1).padStart(2,'0')}${today.getFullYear()}`;
@@ -953,7 +1057,7 @@ const PIC_STATUS_LABELS = {
   xac_minh_them: 'Xác minh thêm',
 };
 
-function downloadExcel(pic, stocks) {
+function downloadExcel(pic, stocks, grRecords = []) {
   const rows = stocks.map(s => ({
     'CH':              s.store,
     'Tên CH':          s.store_name,
@@ -975,18 +1079,61 @@ function downloadExcel(pic, stocks) {
     'Ảnh':             s.image ?? '',
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const colWidths = Object.keys(rows[0] || {}).map(key => ({
-    wch: Math.max(key.length, ...rows.map(r => String(r[key] ?? '').length)) + 2,
-  }));
-  ws['!cols'] = colWidths;
-
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Tồn kho');
+
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  ws1['!cols'] = autoColWidths(rows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Tồn kho');
+
+  if (grRecords.length > 0) {
+    const wsGr = buildGrSheet(grRecords);
+    XLSX.utils.book_append_sheet(wb, wsGr, 'Nhập kho PO');
+  }
 
   const today = new Date();
   const dateStr = `${String(today.getDate()).padStart(2,'0')}${String(today.getMonth()+1).padStart(2,'0')}${today.getFullYear()}`;
   XLSX.writeFile(wb, `PIC_${pic}_${dateStr}.xlsx`);
+}
+
+function autoColWidths(rows) {
+  if (!rows.length) return [];
+  return Object.keys(rows[0]).map(key => ({
+    wch: Math.max(key.length, ...rows.map(r => String(r[key] ?? '').length)) + 2,
+  }));
+}
+
+function buildGrSheet(grRecords) {
+  const isConf = r => r.time_stamp && r.time_stamp !== '';
+
+  // qlkv comes directly from each record (SQL join in get_pic_gr / get_qlkv_gr)
+  const sorted = [...grRecords].sort((a, b) => {
+    const qa = a.qlkv || '';
+    const qb = b.qlkv || '';
+    if (qa !== qb) return qa.localeCompare(qb, 'vi');
+    if (String(a.site) !== String(b.site)) return String(a.site).localeCompare(String(b.site));
+    return String(a.po_number).localeCompare(String(b.po_number));
+  });
+
+  const rows = sorted.map(r => ({
+    'QLKV':        r.qlkv ?? '',
+    'Mã CH':       r.site ?? '',
+    'Tên CH':      r.store_name ?? '',
+    'Số PO':       r.po_number ?? '',
+    'Nhà CC':      r.vendor_name || r.vendor || '',
+    'Giá trị PO':  r.po_amount ?? '',
+    'Tiền tệ':     r.currency ?? 'VND',
+    'Ngày đặt':    r.document_date ?? '',
+    'Trạng thái':  isConf(r) ? 'Đã XN' : 'Chờ XN',
+    'Sản phẩm':    r.product ?? '',
+    'Tình trạng':  r.confirmed_amount ?? '',
+    'Ghi chú NV':  r.confirm_note ?? '',
+    'Thời gian XN':r.time_stamp ?? '',
+    'Ảnh':         r.image ?? '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = autoColWidths(rows);
+  return ws;
 }
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
