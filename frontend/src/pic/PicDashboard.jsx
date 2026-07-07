@@ -16,6 +16,7 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
   const originalsRef = useRef({});
   const [batchSaving, setBatchSaving] = useState(false);
   const [batchMsg, setBatchMsg] = useState('');
+  const [expandedQlkv, setExpandedQlkv] = useState({});
 
   function handleLocalChange(store, article, comment, status) {
     const key = `${store}-${article}`;
@@ -103,7 +104,7 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
 
   const byStore = filteredStocks.reduce((acc, s) => {
     const key = s.store;
-    if (!acc[key]) acc[key] = { store: s.store, store_name: s.store_name, items: [] };
+    if (!acc[key]) acc[key] = { store: s.store, store_name: s.store_name, qlkv: s.qlkv || 'Chưa phân công', items: [] };
     acc[key].items.push(s);
     return acc;
   }, {});
@@ -120,6 +121,22 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
     if (showOnlyPendingStores && !storePendingSet.has(String(g.store))) return false;
     return true;
   });
+
+  // Group stores by QLKV
+  const qlkvGroupMap = displayedGroups.reduce((acc, g) => {
+    const qlkv = g.qlkv || 'Chưa phân công';
+    if (!acc[qlkv]) acc[qlkv] = { qlkv, stores: [] };
+    acc[qlkv].stores.push(g);
+    return acc;
+  }, {});
+  const displayedQlkvGroups = Object.values(qlkvGroupMap).sort((a, b) => a.qlkv.localeCompare(b.qlkv, 'vi'));
+
+  function isQlkvExpanded(qlkv) {
+    return expandedQlkv[qlkv] !== false; // default expanded
+  }
+  function toggleQlkv(qlkv) {
+    setExpandedQlkv(prev => ({ ...prev, [qlkv]: !isQlkvExpanded(qlkv) }));
+  }
 
   const currentSelectedStock = selectedKey
     ? stocks.find(s => `${s.store}-${s.article}` === selectedKey)
@@ -312,60 +329,93 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
                 ))}
               </div>
 
-              {displayedGroups.length === 0 && (
+              {displayedQlkvGroups.length === 0 && (
                 <div className={styles.center}>
                   <p className={styles.emptyText}>Không tìm thấy cửa hàng phù hợp.</p>
                 </div>
               )}
 
               <div className={styles.storeList}>
-                {displayedGroups.map(group => {
-                  const grItems = grByStore[group.store] || [];
-                  const grPending = grItems.filter(r => !isGrConfirmed(r)).length;
-                  const grDone = grItems.length - grPending;
-                  const grRate = grItems.length > 0 ? Math.round(grDone / grItems.length * 100) : 0;
-                  return (
-                    <div key={group.store} className={styles.storeGroup}>
-                      <div className={styles.storeHeader}>
-                        <span className={styles.storeCode}>{group.store}</span>
-                        <span className={styles.storeName}>{group.store_name}</span>
-                        <span className={styles.storeBadge}>
-                          {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
-                          /{group.items.length} XN
-                        </span>
-                        <button
-                          className={`${styles.grStatsRow} ${grPending > 0 ? styles.grStatsRowPending : ''}`}
-                          onClick={e => { e.stopPropagation(); handleSelectGr(group.store); }}
-                        >
-                          <span className={styles.grStatCol}>
-                            <span className={`${styles.grStatColNum} ${grPending > 0 ? styles.grStatColNumPending : styles.grStatColNumDone}`}>{grPending}</span>
-                            <span className={styles.grStatColLabel}>PO chờ</span>
-                          </span>
-                          <span className={styles.grStatCol}>
-                            <span className={`${styles.grStatColNum} ${styles.grStatColNumDone}`}>{grDone}</span>
-                            <span className={styles.grStatColLabel}>Đã XN</span>
-                          </span>
-                          <span className={styles.grStatCol}>
-                            <span className={`${styles.grStatColNum} ${styles.grStatColNumRate}`}>{grRate}%</span>
-                            <span className={styles.grStatColLabel}>Tỷ lệ</span>
-                          </span>
-                        </button>
-                      </div>
+                {displayedQlkvGroups.map(qlkvGroup => {
+                  // Aggregate stats for this QLKV
+                  const qlkvXnTotal  = qlkvGroup.stores.reduce((s, g) => s + g.items.length, 0);
+                  const qlkvXnDone   = qlkvGroup.stores.reduce((s, g) => s + g.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length, 0);
+                  const qlkvGrPending = qlkvGroup.stores.reduce((s, g) => {
+                    const grs = grByStore[g.store] || [];
+                    return s + grs.filter(r => !isGrConfirmed(r)).length;
+                  }, 0);
 
-                      {group.items.map(stock => {
-                        const key = `${stock.store}-${stock.article}`;
-                        const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
-                        return (
-                          <StockRow
-                            key={key}
-                            stock={stock}
-                            isConfirmed={isConfirmed}
-                            isSelected={selectedKey === key}
-                            hasUnsaved={!!localChanges[key]}
-                            onClick={() => handleSelectStock(key, stock.store)}
-                          />
-                        );
-                      })}
+                  return (
+                    <div key={qlkvGroup.qlkv}>
+                      {/* QLKV section header */}
+                      <button
+                        className={styles.qlkvSectionHeader}
+                        onClick={() => toggleQlkv(qlkvGroup.qlkv)}
+                      >
+                        <span className={styles.qlkvSectionArrow}>{isQlkvExpanded(qlkvGroup.qlkv) ? '▾' : '▸'}</span>
+                        <span className={styles.qlkvSectionRole}>QLKV</span>
+                        <span className={styles.qlkvSectionName}>{qlkvGroup.qlkv}</span>
+                        <span className={styles.qlkvSectionStats}>
+                          {qlkvXnDone}/{qlkvXnTotal} XN
+                          {qlkvGrPending > 0 && <span style={{ color: '#e37400', marginLeft: 6 }}>· {qlkvGrPending} PO chờ</span>}
+                        </span>
+                      </button>
+
+                      {/* Store groups */}
+                      {isQlkvExpanded(qlkvGroup.qlkv) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          {qlkvGroup.stores.map(group => {
+                            const grItems = grByStore[group.store] || [];
+                            const grPending = grItems.filter(r => !isGrConfirmed(r)).length;
+                            const grDone = grItems.length - grPending;
+                            const grRate = grItems.length > 0 ? Math.round(grDone / grItems.length * 100) : 0;
+                            return (
+                              <div key={group.store} className={styles.storeGroup}>
+                                <div className={styles.storeHeader}>
+                                  <span className={styles.storeCode}>{group.store}</span>
+                                  <span className={styles.storeName}>{group.store_name}</span>
+                                  <span className={styles.storeBadge}>
+                                    {group.items.filter(i => i.counted_stock !== null && i.counted_stock !== '').length}
+                                    /{group.items.length} XN
+                                  </span>
+                                  <button
+                                    className={`${styles.grStatsRow} ${grPending > 0 ? styles.grStatsRowPending : ''}`}
+                                    onClick={e => { e.stopPropagation(); handleSelectGr(group.store); }}
+                                  >
+                                    <span className={styles.grStatCol}>
+                                      <span className={`${styles.grStatColNum} ${grPending > 0 ? styles.grStatColNumPending : styles.grStatColNumDone}`}>{grPending}</span>
+                                      <span className={styles.grStatColLabel}>PO chờ</span>
+                                    </span>
+                                    <span className={styles.grStatCol}>
+                                      <span className={`${styles.grStatColNum} ${styles.grStatColNumDone}`}>{grDone}</span>
+                                      <span className={styles.grStatColLabel}>Đã XN</span>
+                                    </span>
+                                    <span className={styles.grStatCol}>
+                                      <span className={`${styles.grStatColNum} ${styles.grStatColNumRate}`}>{grRate}%</span>
+                                      <span className={styles.grStatColLabel}>Tỷ lệ</span>
+                                    </span>
+                                  </button>
+                                </div>
+
+                                {group.items.map(stock => {
+                                  const key = `${stock.store}-${stock.article}`;
+                                  const isConfirmed = stock.counted_stock !== null && stock.counted_stock !== '';
+                                  return (
+                                    <StockRow
+                                      key={key}
+                                      stock={stock}
+                                      isConfirmed={isConfirmed}
+                                      isSelected={selectedKey === key}
+                                      hasUnsaved={!!localChanges[key]}
+                                      onClick={() => handleSelectStock(key, stock.store)}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
