@@ -1,0 +1,6 @@
+# Google Apps Script credentials
+.clasprc*.json
+
+# Excel exports / temp files
+*.xlsx
+*.xls

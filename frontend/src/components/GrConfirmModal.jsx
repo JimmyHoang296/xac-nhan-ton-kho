@@ -4,18 +4,19 @@ import CameraCapture from './CameraCapture';
 import { submitGrConfirmation } from '../api';
 
 const STATUS_OPTIONS = [
-  { value: '',                label: '— Chọn tình trạng —' },
-  { value: 'NCC không giao',  label: 'NCC không giao' },
+  { value: '', label: '— Chọn tình trạng —' },
+  { value: 'NCC không giao', label: 'NCC không giao' },
   { value: 'CH chưa nhập kho', label: 'CH chưa nhập kho' },
+  { value: 'CH đã nhập kho', label: 'CH đã nhập kho' },
 ];
 
 export default function GrConfirmModal({ record, storeCode, onClose, onSuccess }) {
-  const [status, setStatus]   = useState('');
-  const [note, setNote]       = useState('');
-  const [photos, setPhotos]   = useState([]);
+  const [status, setStatus] = useState('');
+  const [note, setNote] = useState('');
+  const [photos, setPhotos] = useState([]);
   const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]     = useState('');
+  const [error, setError] = useState('');
   const overlayRef = useRef(null);
 
   useEffect(() => {
@@ -132,7 +133,7 @@ export default function GrConfirmModal({ record, storeCode, onClose, onSuccess }
               <label className={styles.label}>Ghi chú</label>
               <textarea
                 className={styles.textarea}
-                placeholder="Lý do không nhận / ghi chú thêm..."
+                placeholder="Lý do chưa nhập kho/ngày nhập kho/ghi chú thêm..."
                 rows={3}
                 value={note}
                 onChange={e => setNote(e.target.value)}

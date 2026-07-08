@@ -11,7 +11,7 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
   const [picStatusFilter, setPicStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showOnlyPendingStores, setShowOnlyPendingStores] = useState(false);
+  const [showOnlyPendingStores] = useState(false);
   const [localChanges, setLocalChanges] = useState({});
   const originalsRef = useRef({});
   const [batchSaving, setBatchSaving] = useState(false);
@@ -249,6 +249,66 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
         </div>
+
+        {!loading && !error && stocks.length > 0 && (
+          <div className={styles.headerFilters}>
+            <div className={styles.searchBar}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className={styles.searchIcon}>
+                <circle cx="11" cy="11" r="7" stroke="#80868b" strokeWidth="2"/>
+                <path d="M16.5 16.5l4 4" stroke="#80868b" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Tìm cửa hàng (mã hoặc tên)..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button className={styles.searchClear} onClick={() => setSearchQuery('')} title="Xóa">✕</button>
+              )}
+            </div>
+
+            <div className={styles.picFilterBar}>
+              {[
+                { key: 'all',           label: 'Tất cả',        cls: '',               group: 'status' },
+                { key: 'none',          label: 'Chưa set',      cls: styles.pfNone,    group: 'status' },
+                { key: 'ok',            label: 'OK',            cls: styles.pfOk,      group: 'status' },
+                { key: 'xlvp',          label: 'XLVP',          cls: styles.pfXlvp,    group: 'status' },
+                { key: 'xac_minh_them', label: 'Xác minh thêm', cls: styles.pfXmt,     group: 'status' },
+              ].map(({ key, label, cls }) => (
+                <button
+                  key={'s-' + key}
+                  className={`${styles.pfChip} ${cls} ${picStatusFilter === key ? styles.pfChipActive : ''}`}
+                  onClick={() => setPicStatusFilter(key)}
+                >
+                  {label}
+                  {picCounts[key] > 0 && <span className={styles.pfCount}>{picCounts[key]}</span>}
+                </button>
+              ))}
+
+              <span className={styles.filterDivider} />
+
+              {[
+                { key: 'all',    label: 'Risk: Tất cả', cls: '' },
+                { key: 'ratcao', label: 'Rất cao',      cls: styles.rfVeryHigh },
+                { key: 'cao',    label: 'Cao',          cls: styles.rfHigh },
+                { key: 'tb',     label: 'Trung bình',   cls: styles.rfMedium },
+                { key: 'thap',   label: 'Thấp',         cls: styles.rfLow },
+                { key: 'none',   label: 'Chưa set',     cls: styles.pfNone },
+              ].map(({ key, label, cls }) => (
+                <button
+                  key={'r-' + key}
+                  className={`${styles.pfChip} ${cls} ${riskFilter === key ? styles.pfChipActive : ''}`}
+                  onClick={() => setRiskFilter(key)}
+                >
+                  {label}
+                  {riskCounts[key] > 0 && <span className={styles.pfCount}>{riskCounts[key]}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       <div className={styles.masterDetail}>
@@ -265,70 +325,6 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
 
           {!loading && !error && stocks.length > 0 && (
             <>
-              <div className={styles.searchBar}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className={styles.searchIcon}>
-                  <circle cx="11" cy="11" r="7" stroke="#80868b" strokeWidth="2"/>
-                  <path d="M16.5 16.5l4 4" stroke="#80868b" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <input
-                  type="text"
-                  className={styles.searchInput}
-                  placeholder="Tìm cửa hàng (mã hoặc tên)..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button className={styles.searchClear} onClick={() => setSearchQuery('')} title="Xóa">✕</button>
-                )}
-                <button
-                  className={`${styles.filterToggle} ${showOnlyPendingStores ? styles.filterToggleActive : ''}`}
-                  onClick={() => setShowOnlyPendingStores(v => !v)}
-                >
-                  PIC chưa XN
-                </button>
-              </div>
-
-              {/* Filter chips theo pic_status */}
-              <div className={styles.picFilterBar}>
-                {[
-                  { key: 'all',           label: 'Tất cả',        cls: '' },
-                  { key: 'none',          label: 'Chưa set',      cls: styles.pfNone },
-                  { key: 'ok',            label: 'OK',            cls: styles.pfOk },
-                  { key: 'xlvp',          label: 'XLVP',          cls: styles.pfXlvp },
-                  { key: 'xac_minh_them', label: 'Xác minh thêm', cls: styles.pfXmt },
-                ].map(({ key, label, cls }) => (
-                  <button
-                    key={key}
-                    className={`${styles.pfChip} ${cls} ${picStatusFilter === key ? styles.pfChipActive : ''}`}
-                    onClick={() => setPicStatusFilter(key)}
-                  >
-                    {label}
-                    {picCounts[key] > 0 && <span className={styles.pfCount}>{picCounts[key]}</span>}
-                  </button>
-                ))}
-              </div>
-
-              {/* Filter chips theo risk */}
-              <div className={styles.picFilterBar}>
-                {[
-                  { key: 'all',    label: 'Risk: Tất cả', cls: '' },
-                  { key: 'ratcao', label: 'Rất cao',      cls: styles.rfVeryHigh },
-                  { key: 'cao',    label: 'Cao',          cls: styles.rfHigh },
-                  { key: 'tb',     label: 'Trung bình',   cls: styles.rfMedium },
-                  { key: 'thap',   label: 'Thấp',         cls: styles.rfLow },
-                  { key: 'none', label: 'Chưa set',      cls: styles.pfNone },
-                ].map(({ key, label, cls }) => (
-                  <button
-                    key={key}
-                    className={`${styles.pfChip} ${cls} ${riskFilter === key ? styles.pfChipActive : ''}`}
-                    onClick={() => setRiskFilter(key)}
-                  >
-                    {label}
-                    {riskCounts[key] > 0 && <span className={styles.pfCount}>{riskCounts[key]}</span>}
-                  </button>
-                ))}
-              </div>
-
               {displayedQlkvGroups.length === 0 && (
                 <div className={styles.center}>
                   <p className={styles.emptyText}>Không tìm thấy cửa hàng phù hợp.</p>
