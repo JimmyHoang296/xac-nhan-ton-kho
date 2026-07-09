@@ -221,7 +221,7 @@
 
 /* ── Table ── */
 .tableWrap {
-  overflow-x: auto;
+  overflow: clip;          /* bo góc không tạo scroll context — sticky th hoạt động */
   border-radius: 12px;
   border: 1px solid #e0e0e0;
   background: #fff;
