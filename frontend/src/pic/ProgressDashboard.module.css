@@ -1,5 +1,6 @@
 .wrapper {
-  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #f8f9fa;
