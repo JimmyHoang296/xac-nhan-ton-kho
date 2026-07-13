@@ -321,6 +321,15 @@
   opacity: 1;
 }
 
+/* KSTT name — hiển thị dạng link khi có onOpenPic */
+.ksttNameLink {
+  text-decoration: underline dotted #1a73e8;
+}
+
+.ksttRow:hover .ksttNameLink {
+  text-decoration-style: solid;
+}
+
 /* KSTT row */
 .ksttRow {
   background: #e8f0fe;

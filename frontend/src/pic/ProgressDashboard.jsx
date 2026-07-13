@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { fetchProgress, fetchAllGr } from '../api';
 import styles from './ProgressDashboard.module.css';
 
-export default function ProgressDashboard({ pic, onLogout }) {
+export default function ProgressDashboard({ pic, onLogout, onSwitchAdmin, onOpenPic }) {
   const [data,       setData]       = useState(null);
   const [grRecords,  setGrRecords]  = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -88,6 +88,9 @@ export default function ProgressDashboard({ pic, onLogout }) {
                 <path d="M4.07 13a8 8 0 1013.55-8.36L20 2M20 22l-2.38-2.64A8 8 0 014.07 13" stroke="#1a73e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
+            {onSwitchAdmin && (
+              <button className={styles.detailBtn} onClick={onSwitchAdmin}>Admin</button>
+            )}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
         </div>
@@ -148,10 +151,13 @@ export default function ProgressDashboard({ pic, onLogout }) {
                   <React.Fragment key={picGroup.pic || '__none__'}>
                     {/* ── PIC row ── */}
                     <tr className={styles.ksttRow}
-                        onClick={() => togglePic(picGroup.pic)}>
+                        onClick={() => togglePic(picGroup.pic)}
+                        onDoubleClick={() => onOpenPic && picGroup.pic && onOpenPic(picGroup.pic)}>
                       <td className={styles.ksttCell}>
                         <span className={styles.chevron}>{expKstt[picGroup.pic] ? '▾' : '▸'}</span>
-                        {picGroup.pic || '— Chưa phân công —'}
+                        <span className={onOpenPic && picGroup.pic ? styles.ksttNameLink : ''}>
+                          {picGroup.pic || '— Chưa phân công —'}
+                        </span>
                       </td>
                       <td className={styles.numCell}>{picGroup.stores}</td>
                       <td className={styles.numCell}>
