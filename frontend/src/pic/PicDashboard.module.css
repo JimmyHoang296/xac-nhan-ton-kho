@@ -667,7 +667,8 @@
 .detailStoreRow {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
 }
 
 .detailStoreName {
@@ -780,6 +781,21 @@
 .mapBtnFar:hover  { background: #fde9c4; }
 .mapBtnFar:active { background: #fbd9a0; }
 
+/* Two-column layout: main | history */
+.detailTwoCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.detailMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 /* Detail body: always column (top row + images below) */
 .detailBody {
   display: flex;
@@ -816,7 +832,9 @@
 .noteText { font-size: 0.875rem; color: #1a1a2e; margin: 0; white-space: pre-wrap; }
 
 /* Comment */
-.commentSection { display: flex; flex-direction: column; gap: 0.4rem; }
+.commentSection { display: flex; flex-direction: row; gap: 0.75rem; align-items: flex-start; }
+.picStatusGroup { flex: 0 0 auto; min-width: 160px; display: flex; flex-direction: column; gap: 0.4rem; }
+.picCommentGroup { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .commentLabel {
   font-size: 0.72rem;
   font-weight: 700;
@@ -837,7 +855,6 @@
   background: white;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
-  margin-bottom: 0.75rem;
 }
 .statusSelect:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.1); }
 
@@ -852,7 +869,6 @@
   outline: none;
   color: #1a1a2e;
   background: white;
-  resize: vertical;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .commentInput:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.1); }
@@ -910,6 +926,44 @@
 .imgLink:hover  { background: #c5d8fb; }
 .imgLink:active { background: #a8c7fa; }
 
+/* Lightbox */
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightboxImg {
+  height: 600px;
+  max-height: 90svh;
+  max-width: 92vw;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+.lightboxClose {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.lightboxClose:hover { background: rgba(255,255,255,0.28); }
+
 /* Risk tags */
 .riskTag {
   display: inline-block;
@@ -946,6 +1000,112 @@
 
 
 /* ═══════════════════════════════════════
+   HISTORY SECTION
+   ═══════════════════════════════════════ */
+.historySection {
+  border-bottom: 1px solid #f1f3f4;
+  background: #fff;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem 0.4rem;
+}
+
+.historyTitle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.historyCount {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #80868b;
+  background: #f1f3f4;
+  border-radius: 10px;
+  padding: 0.05rem 0.45rem;
+}
+
+.historyRows {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.historyRowHead {
+  display: grid;
+  grid-template-columns: 88px 54px 1fr 52px 1fr;
+  gap: 0;
+  padding: 0.2rem 1rem;
+  min-width: 360px;
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: #80868b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f8f9fa;
+  border-top: 1px solid #f1f3f4;
+}
+
+.historyRow {
+  display: grid;
+  grid-template-columns: 88px 54px 1fr 52px 1fr;
+  align-items: center;
+  gap: 0;
+  padding: 0.28rem 1rem;
+  border-top: 1px solid #f1f3f4;
+  font-size: 0.78rem;
+  min-width: 360px;
+}
+
+.historyRowDone    { background: #fff; }
+.historyRowPending { background: #fafafa; }
+
+.historyDate {
+  color: #5f6368;
+  font-weight: 600;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.historyStock {
+  color: #3c4043;
+  font-weight: 600;
+  text-align: right;
+  padding-right: 0.5rem;
+}
+
+.historyConfirmed {
+  font-weight: 700;
+  padding-right: 0.4rem;
+}
+.historyConfirmedNum { color: #137333; }
+.historyConfirmedStr { color: #80868b; font-style: italic; font-size: 0.7rem; font-weight: 500; }
+
+.historyDiff {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+  padding-right: 0.5rem;
+  white-space: nowrap;
+}
+.historyDiffNeg  { color: #ea4335; }
+.historyDiffPos  { color: #1a73e8; }
+.historyDiffZero { color: #80868b; }
+
+.historyNote {
+  color: #5f6368;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════
    TABLET ≥ 640px — note + comment side by side
    ═══════════════════════════════════════ */
 @media (min-width: 640px) {
@@ -964,6 +1124,30 @@
   }
   .imgItem   { width: 260px; flex-shrink: 0; }
   .confirmImg { max-height: 300px; }
+
+  /* Two-column detail layout: main (left) | history (right) */
+  .detailTwoCol {
+    flex-direction: row;
+    overflow: hidden;
+  }
+  .detailMain {
+    overflow-y: auto;
+  }
+  .historySection {
+    width: 256px;
+    flex-shrink: 0;
+    border-left: 1px solid #e8eaed;
+    border-bottom: none;
+    background: #fafafa;
+    overflow-y: auto;
+    align-self: stretch;
+  }
+  .historyNote { display: none; }
+  .historyRowHead,
+  .historyRow {
+    grid-template-columns: 80px 48px 1fr 46px;
+    min-width: unset;
+  }
 }
 
 

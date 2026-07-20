@@ -1,59 +1,6 @@
 import styles from './StockList.module.css';
 
-export default function StockList({ storeName, storeCode, stocks, onCardClick, hideHeader }) {
-  const pending = stocks.filter(s => s.counted_stock === '' || s.counted_stock === null || s.counted_stock === undefined);
-  const confirmed = stocks.filter(s => s.counted_stock !== '' && s.counted_stock !== null && s.counted_stock !== undefined);
-
-  return (
-    <div className={styles.wrapper}>
-      {!hideHeader && (
-        <div className={styles.header}>
-          <div className={styles.storeTag}>{storeCode}</div>
-          <h2 className={styles.storeName}>{storeName}</h2>
-          <p className={styles.instruction}>Hướng dẫn: Chọn vào sản phẩm trong danh sách, nhập số tồn và hình ảnh chứa phần lớn sản phẩm cần xác minh</p>
-          <div className={styles.stats}>
-            <span className={styles.statPending}>{pending.length} chờ xác nhận</span>
-            <span className={styles.dot}>·</span>
-            <span className={styles.statDone}>{confirmed.length} đã xác nhận</span>
-          </div>
-        </div>
-      )}
-
-      {pending.length === 0 ? (
-        <div className={styles.empty}>
-          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-            <circle cx="28" cy="28" r="28" fill="#e6f4ea" />
-            <path d="M18 28l8 8 12-14" stroke="#34a853" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <p className={styles.emptyTitle}>Tất cả đã xác nhận!</p>
-          <p className={styles.emptySub}>Không còn sản phẩm nào cần xác nhận.</p>
-        </div>
-      ) : (
-        <div className={styles.section}>
-          <p className={styles.sectionLabel}>Cần xác nhận</p>
-          <div className={styles.grid}>
-            {pending.map(stock => (
-              <StockCard key={stock.article} stock={stock} onClick={() => onCardClick(stock)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {confirmed.length > 0 && (
-        <div className={styles.section}>
-          <p className={styles.sectionLabel}>Đã xác nhận</p>
-          <div className={styles.grid}>
-            {confirmed.map(stock => (
-              <StockCard key={stock.article} stock={stock} confirmed />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StockCard({ stock, confirmed, onClick }) {
+export function StockCard({ stock, confirmed, onClick }) {
   const thung = stock.thung ? Number(stock.thung) : 0;
 
   return (

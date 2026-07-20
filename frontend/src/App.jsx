@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import StoreSearch from './components/StoreSearch';
-import StockList from './components/StockList';
-import GrList from './components/GrList';
+import ConfirmList from './components/ConfirmList';
 import ConfirmModal from './components/ConfirmModal';
 import GrConfirmModal from './components/GrConfirmModal';
 import Toast from './components/Toast';
 import { fetchStocks, fetchGrByStore } from './api';
 
+const isStockConfirmed = s => s.counted_stock !== '' && s.counted_stock !== null && s.counted_stock !== undefined;
 const isGrConfirmed = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
 
 export default function App() {
@@ -20,7 +20,6 @@ export default function App() {
   const [activeStock, setActiveStock] = useState(null);
   const [activeGr, setActiveGr]   = useState(null);
   const [toast, setToast]         = useState(null);
-  const [tab, setTab]             = useState('stock'); // 'stock' | 'gr'
 
   async function handleSearch(code) {
     setLoading(true);
@@ -39,7 +38,6 @@ export default function App() {
       setStoreName(stockData.store_name || '');
       setStocks(stockData.stocks || []);
       setGrRecords(grData.records || []);
-      setTab(stockData.stocks.length > 0 ? 'stock' : 'gr');
       setView('dashboard');
     } catch (err) {
       setSearchError(
@@ -72,8 +70,8 @@ export default function App() {
   }, []);
 
   // Computed counts
-  const stockPending = stocks.filter(s => s.counted_stock === '' || s.counted_stock === null || s.counted_stock === undefined);
-  const grPending    = grRecords.filter(r => !isGrConfirmed(r));
+  const stockPending = stocks.filter(s => !isStockConfirmed(s));
+  const grPending     = grRecords.filter(r => !isGrConfirmed(r));
 
   return (
     <>
@@ -133,40 +131,23 @@ export default function App() {
                 icon="📦"
                 pending={stockPending.length}
                 total={stocks.length}
-                active={tab === 'stock'}
-                color="#1a73e8"
-                onClick={() => setTab('stock')}
               />
               <SummaryCard
-                label="Nhập kho"
+                label="Nhập kho (PO)"
                 icon="📋"
                 pending={grPending.length}
                 total={grRecords.length}
-                active={tab === 'gr'}
-                color="#34a853"
-                onClick={() => setTab('gr')}
               />
             </div>
           </div>
 
-          {/* Tab content */}
-          {tab === 'stock' && (
-            <StockList
-              storeName={storeName}
-              storeCode={storeCode}
-              stocks={stocks}
-              onCardClick={setActiveStock}
-              hideHeader
-            />
-          )}
-          {tab === 'gr' && (
-            <GrList
-              records={grRecords}
-              storeCode={storeCode}
-              storeName={storeName}
-              onCardClick={setActiveGr}
-            />
-          )}
+          {/* Gộp chung tồn kho + PO, phân theo trạng thái cần/đã xác nhận — không chia tab theo loại */}
+          <ConfirmList
+            stocks={stocks}
+            grRecords={grRecords}
+            onStockClick={setActiveStock}
+            onGrClick={setActiveGr}
+          />
         </>
       )}
 
@@ -195,23 +176,19 @@ export default function App() {
   );
 }
 
-function SummaryCard({ label, icon, pending, total, active, color, onClick }) {
+function SummaryCard({ label, icon, pending, total }) {
   return (
-    <button
-      onClick={onClick}
+    <div
       style={{
-        background: active ? '#f0f6ff' : 'white',
-        border: active ? `2px solid ${color}` : '2px solid #e8eaed',
+        background: 'white',
+        border: '2px solid #e8eaed',
         borderRadius: 14,
         padding: '0.875rem 1rem',
-        textAlign: 'left',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
         <span style={{ fontSize: '1rem' }}>{icon}</span>
-        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: active ? color : '#5f6368', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
         <span style={{ fontSize: '1.75rem', fontWeight: 800, color: pending > 0 ? '#f29900' : '#34a853', lineHeight: 1 }}>{pending}</span>
@@ -220,6 +197,6 @@ function SummaryCard({ label, icon, pending, total, active, color, onClick }) {
       <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: pending > 0 ? '#f29900' : '#34a853', fontWeight: 600 }}>
         {pending > 0 ? 'chờ xác nhận' : 'đã hoàn thành'}
       </p>
-    </button>
+    </div>
   );
 }

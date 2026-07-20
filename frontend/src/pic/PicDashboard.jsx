@@ -13,6 +13,7 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyPendingStores] = useState(false);
   const [localChanges, setLocalChanges] = useState({});
+  const [lightboxUrl, setLightboxUrl] = useState(null);
   const originalsRef = useRef({});
   const [batchSaving, setBatchSaving] = useState(false);
   const [batchMsg, setBatchMsg] = useState('');
@@ -170,6 +171,7 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
 
 
   return (
+    <>
     <div className={styles.wrapper}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
@@ -446,6 +448,7 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
                     onBack={handleBackToList}
                     onLocalChange={handleLocalChange}
                     hasUnsaved={!!localChanges[selectedKey]}
+                    onImageClick={setLightboxUrl}
                   />
                 ) : (
                   <div className={styles.detailPlaceholder}>
@@ -488,7 +491,21 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
           )}
         </div>
       )}
+
     </div>
+
+    {lightboxUrl && (
+      <div className={styles.lightboxOverlay} onClick={() => setLightboxUrl(null)}>
+        <img
+          src={lightboxUrl}
+          alt="Phóng to"
+          className={styles.lightboxImg}
+          onClick={e => e.stopPropagation()}
+        />
+        <button className={styles.lightboxClose} onClick={() => setLightboxUrl(null)}>✕</button>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -566,7 +583,7 @@ function StockRow({ stock, isConfirmed, isSelected, hasUnsaved, onClick }) {
 /* ─────────────────────────────────────────
    DetailPanel — right-side detail view
 ───────────────────────────────────────── */
-function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
+function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved, onImageClick }) {
   const [comment, setComment] = useState(stock.pic_comment || '');
   const [status,  setStatus]  = useState(stock.pic_status  || '');
 
@@ -594,12 +611,6 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
     <div className={styles.detailPanelInner}>
       {/* Sticky header */}
       <div className={styles.detailPanelHeader}>
-        <button className={styles.backBtn} onClick={onBack}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Danh sách
-        </button>
         <div className={styles.detailTitleRow}>
           <span className={`${styles.badge} ${isConfirmed ? styles.badgeDone : styles.badgePending}`}>
             {isConfirmed ? '✓ Đã XN' : 'Chờ XN'}
@@ -610,39 +621,36 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
         <div className={styles.detailStoreRow}>
           <span className={styles.storeCode}>{stock.store}</span>
           <span className={styles.detailStoreName}>{stock.store_name}</span>
+          {stock.cht && (
+            <span className={styles.contactItem}>
+              <span className={styles.contactRole}>CHT</span>
+              <span className={styles.contactName}>{stock.cht}</span>
+              {stock.sdt_cht && (
+                <a href={viberUrl(stock.sdt_cht)} className={styles.contactPhone}>
+                  💬 {normalizePhone(stock.sdt_cht)}
+                </a>
+              )}
+            </span>
+          )}
+          {stock.qlkv && (
+            <span className={styles.contactItem}>
+              <span className={styles.contactRole}>QLKV</span>
+              <span className={styles.contactName}>{stock.qlkv}</span>
+              {stock.sdt_qlkv && (
+                <a href={viberUrl(stock.sdt_qlkv)} className={styles.contactPhone}>
+                  💬 {normalizePhone(stock.sdt_qlkv)}
+                </a>
+              )}
+            </span>
+          )}
         </div>
-
-        {(stock.cht || stock.qlkv) && (
-          <div className={styles.contactStrip}>
-            {stock.cht && (
-              <span className={styles.contactItem}>
-                <span className={styles.contactRole}>CHT</span>
-                <span className={styles.contactName}>{stock.cht}</span>
-                {stock.sdt_cht && (
-                  <a href={viberUrl(stock.sdt_cht)} className={styles.contactPhone}>
-                    💬 {normalizePhone(stock.sdt_cht)}
-                  </a>
-                )}
-              </span>
-            )}
-            {stock.qlkv && (
-              <span className={styles.contactItem}>
-                <span className={styles.contactRole}>QLKV</span>
-                <span className={styles.contactName}>{stock.qlkv}</span>
-                {stock.sdt_qlkv && (
-                  <a href={viberUrl(stock.sdt_qlkv)} className={styles.contactPhone}>
-                    💬 {normalizePhone(stock.sdt_qlkv)}
-                  </a>
-                )}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
+      <div className={styles.detailTwoCol}>
+        <div className={styles.detailMain}>
       {/* Chips */}
       <div className={styles.chipStrip}>
-        <Chip label="Tồn HT"      value={stock.stock} />
+        <Chip label={`Tồn ${formatShortDate(stock.stock_day)}`} value={stock.stock} />
         <Chip label="Hiện tại"    value={stock.current_stock} />
         <Chip label="Kiểm kho"    value={isConfirmed ? stock.counted_stock : null} green={isConfirmed} />
         <Chip label="Chênh lệch"
@@ -650,7 +658,6 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
           green={isConfirmed && diff >= 0}
           red={isConfirmed && diff < 0}
         />
-        <Chip label="Ngày tồn"    value={formatDate(stock.stock_day)} />
         <Chip label="XN lúc"      value={formatDateTime(stock.time_stamp)} />
         <Chip label="Cách CH"
           value={stock.location_check ? `${stock.location_check} m` : null}
@@ -696,26 +703,29 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
           )}
 
           <div className={styles.commentSection}>
-            <label className={styles.commentLabel}>PIC thẩm định</label>
-            <select
-              className={styles.statusSelect}
-              value={status}
-              onChange={e => handleStatusChange(e.target.value)}
-            >
-              {PIC_STATUSES.map(s => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-
-            <label className={styles.commentLabel}>Comment PIC</label>
-            <textarea
-              className={styles.commentInput}
-              rows={4}
-              placeholder="Nhập nhận xét của PIC..."
-              value={comment}
-              onChange={e => handleCommentChange(e.target.value)}
-            />
-            {hasUnsaved && <span className={styles.unsavedLabel}>Chưa lưu lên server</span>}
+            <div className={styles.picStatusGroup}>
+              <label className={styles.commentLabel}>PIC thẩm định</label>
+              <select
+                className={styles.statusSelect}
+                value={status}
+                onChange={e => handleStatusChange(e.target.value)}
+              >
+                {PIC_STATUSES.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.picCommentGroup}>
+              <label className={styles.commentLabel}>Comment PIC</label>
+              <input
+                type="text"
+                className={styles.commentInput}
+                placeholder="Nhập nhận xét..."
+                value={comment}
+                onChange={e => handleCommentChange(e.target.value)}
+              />
+              {hasUnsaved && <span className={styles.unsavedLabel}>Chưa lưu lên server</span>}
+            </div>
           </div>
         </div>
 
@@ -728,6 +738,8 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
                   src={imageUrl(url.trim())}
                   alt={`Ảnh ${idx + 1}`}
                   className={styles.confirmImg}
+                  style={{ cursor: 'zoom-in' }}
+                  onClick={() => onImageClick(url.trim())}
                 />
                 <a href={url.trim()} target="_blank" rel="noreferrer" className={styles.imgLink}>
                   Mở ảnh {stock.image.split(',').length > 1 ? idx + 1 : 'gốc'}
@@ -736,7 +748,11 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved }) {
             ))}
           </div>
         )}
+
       </div>
+        </div>{/* detailMain */}
+        <HistorySection history={stock.history} />
+      </div>{/* detailTwoCol */}
     </div>
   );
 }
@@ -862,6 +878,71 @@ function GrDetailPane({ records, onBack }) {
   );
 }
 
+/* ─────────────────────────────────────────
+   HistorySection — lịch sử xác nhận các tuần trước
+   history: JSON string "[["dd/mm/yyyy", stock, counted_or_status, note], ...]"
+───────────────────────────────────────── */
+function HistorySection({ history }) {
+  if (!history) return null;
+  let rows;
+  try {
+    rows = typeof history === 'string' ? JSON.parse(history) : history;
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const sorted = [...rows].sort((a, b) => {
+    const parseDate = d => {
+      if (!d) return 0;
+      const parts = String(d).split('/');
+      if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+      return new Date(d).getTime();
+    };
+    return parseDate(a[0]) - parseDate(b[0]);
+  });
+
+  return (
+    <div className={styles.historySection}>
+      <div className={styles.historyHeader}>
+        <span className={styles.historyTitle}>Lịch sử xác nhận</span>
+        <span className={styles.historyCount}>{rows.length} tuần</span>
+      </div>
+      <div className={styles.historyRows}>
+        <div className={styles.historyRowHead}>
+          <span>Ngày</span>
+          <span>Tồn HT</span>
+          <span>Xác nhận</span>
+          <span>Chênh</span>
+          <span>Ghi chú</span>
+        </div>
+        {sorted.map((row, i) => {
+          const [date, stockVal, confirmed, note] = row;
+          const isNum = typeof confirmed === 'number';
+          const statusText = isNum ? String(confirmed) : String(confirmed ?? '—');
+          const diff = isNum ? confirmed - Number(stockVal) : null;
+          return (
+            <div key={i} className={`${styles.historyRow} ${isNum ? styles.historyRowDone : styles.historyRowPending}`}>
+              <span className={styles.historyDate}>{date || '—'}</span>
+              <span className={styles.historyStock}>{stockVal ?? '—'}</span>
+              <span className={`${styles.historyConfirmed} ${isNum ? styles.historyConfirmedNum : styles.historyConfirmedStr}`}>
+                {statusText}
+              </span>
+              {isNum && diff !== null && (
+                <span className={`${styles.historyDiff} ${diff < 0 ? styles.historyDiffNeg : diff > 0 ? styles.historyDiffPos : styles.historyDiffZero}`}>
+                  {diff > 0 ? `+${diff}` : diff}
+                </span>
+              )}
+              {!isNum && <span className={styles.historyDiff} />}
+              <span className={styles.historyNote}>{note || ''}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function normalizeRisk(risk) {
   if (!risk) return '';
   const r = String(risk).toLowerCase().trim();
@@ -921,10 +1002,12 @@ function Chip({ label, value, green, red }) {
 }
 
 const PIC_STATUSES = [
-  { value: '',               label: '— Chọn trạng thái —' },
-  { value: 'ok',             label: 'OK' },
-  { value: 'xlvp',           label: 'XLVP' },
-  { value: 'xac_minh_them',  label: 'Xác minh thêm' },
+  { value: '',      label: '— Chọn trạng thái —' },
+  { value: 'next',  label: 'Xác nhận tiếp tuần sau' },
+  { value: 'ex1',   label: 'Miễn 1 tuần' },
+  { value: 'ex2',   label: 'Miễn 2 tuần' },
+  { value: 'ex3',   label: 'Miễn 3 tuần' },
+  { value: 'ex4',   label: 'Miễn 4 tuần' },
 ];
 
 function downloadExcelByQlkv(pic, stocks, grRecords = []) {
@@ -1146,11 +1229,14 @@ function imageUrl(url) {
   return url;
 }
 
-function formatDate(val) {
-  if (!val) return '—';
-  const d = new Date(val);
-  if (isNaN(d)) return String(val);
-  return d.toLocaleDateString('vi-VN');
+function formatShortDate(val) {
+  if (!val) return 'HT';
+  const s = String(val).trim();
+  const slash = s.split('/');
+  if (slash.length >= 3) return `${slash[0]}/${slash[1]}`;
+  const dash = s.split('-');
+  if (dash.length >= 3) return `${dash[2]}/${dash[1]}`;
+  return s.slice(0, 5);
 }
 
 function formatDateTime(val) {

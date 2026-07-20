@@ -73,9 +73,11 @@ export default function AdminPanel({ password, onLogout }) {
     if (!ok) return;
     setError(''); setBusy(`Đang thay thế bảng ${table}…`);
     try {
-      const { data, error: rpcErr } = await supabase.rpc('admin_replace_table', {
-        p_password: password, p_table: table, p_rows: rows,
-      });
+      const rpcName = table === 'stocks' ? 'admin_upsert_stocks' : 'admin_replace_table';
+      const params  = table === 'stocks'
+        ? { p_password: password, p_rows: rows }
+        : { p_password: password, p_table: table, p_rows: rows };
+      const { data, error: rpcErr } = await supabase.rpc(rpcName, params);
       if (rpcErr) throw new Error(rpcErr.message);
       if (data?.error) throw new Error(data.error);
       setResults(prev => [...prev, `✓ ${table}: đã nạp ${data.inserted} dòng`]);

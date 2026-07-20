@@ -23,11 +23,11 @@ create table stocks (
   store_name     text,
   article        text,
   article_name   text,
+  thung          text,
+  risk           text,
+  history        text,
   stock_day      text,
   stock          text,
-  pic            text,
-  risk           text,
-  thung          text,
   current_stock  text,
   counted_stock  text,
   note           text,
@@ -37,8 +37,8 @@ create table stocks (
   time_stamp     text,
   location_check text,
   image          text,
-  pic_comment    text,
-  pic_status     text
+  pic_status     text,
+  pic_comment    text
 );
 
 create index stocks_store_idx   on stocks (store);
@@ -149,8 +149,9 @@ returns jsonb language sql security definer set search_path = public as $$
       'stocks', coalesce((
         select jsonb_agg(jsonb_build_object(
           'article', article, 'article_name', article_name, 'stock_day', stock_day,
-          'stock', stock, 'pic', pic, 'current_stock', current_stock,
-          'counted_stock', counted_stock, 'note', note, 'thung', thung, 'risk', risk
+          'stock', stock, 'current_stock', current_stock,
+          'counted_stock', counted_stock, 'note', note, 'thung', thung, 'risk', risk,
+          'history', history
         ))
         from stocks where store::text = p_store::text
       ), '[]'::jsonb)
@@ -169,14 +170,15 @@ returns jsonb language sql security definer set search_path = public as $$
         'counted_stock', s.counted_stock, 'note', s.note, 'lat', s.lat, 'long', s.long,
         'image', s.image, 'time_stamp', s.time_stamp, 'location_check', s.location_check,
         'pic_comment', s.pic_comment, 'pic_status', s.pic_status, 'thung', s.thung, 'risk', s.risk,
+        'history', coalesce(s.history, ''),
         'store_name', coalesce(st.store_name, ''), 'store_lat', coalesce(st.lat, ''),
         'store_long', coalesce(st.long, ''), 'cht', coalesce(st.cht, ''),
         'sdt_cht', coalesce(st.sdt_cht, ''), 'qlkv', coalesce(st.qlkv, ''),
         'sdt_qlkv', coalesce(st.sdt_qlkv, '')
       ))
-      from stocks s
-      left join stores st on st.store::text = s.store::text
-      where btrim(s.pic) = btrim(p_pic)
+      from stores st
+      join stocks s on s.store::text = st.store::text
+      where btrim(st.kstt) = btrim(p_pic)
     ), '[]'::jsonb)
   );
 $$;
@@ -206,10 +208,10 @@ begin
         select jsonb_agg(jsonb_build_object(
           'store', s.store, 'store_name', st.store_name, 'article', s.article,
           'article_name', s.article_name, 'stock_day', s.stock_day, 'stock', s.stock,
-          'pic', s.pic, 'current_stock', s.current_stock, 'counted_stock', s.counted_stock,
+          'current_stock', s.current_stock, 'counted_stock', s.counted_stock,
           'note', s.note, 'lat', s.lat, 'long', s.long, 'image', s.image,
           'time_stamp', s.time_stamp, 'location_check', s.location_check, 'thung', s.thung,
-          'risk', s.risk, 'store_lat', st.lat, 'store_long', st.long,
+          'risk', s.risk, 'history', coalesce(s.history, ''), 'store_lat', st.lat, 'store_long', st.long,
           'cht', st.cht, 'sdt_cht', st.sdt_cht, 'qlkv', st.qlkv, 'qlkv_id', st.qlkv_id,
           'sdt_qlkv', st.sdt_qlkv, 'gdv', st.gdv, 'gdv_id', st.gdv_id, 'gdm', st.gdm,
           'gdm_id', st.gdm_id, 'gdc', st.gdc, 'gdc_id', st.gdc_id
@@ -231,10 +233,12 @@ returns jsonb language sql security definer set search_path = public as $$
   select jsonb_build_object(
     'stocks', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'store', store, 'pic', coalesce(pic, ''),
-        'counted_stock', counted_stock, 'pic_status', coalesce(pic_status, '')
+        'store', s.store, 'pic', coalesce(st.kstt, ''),
+        'counted_stock', s.counted_stock, 'pic_status', coalesce(s.pic_status, '')
       ))
-      from stocks where store is not null and store <> ''
+      from stocks s
+      left join stores st on st.store::text = s.store::text
+      where s.store is not null and s.store <> ''
     ), '[]'::jsonb),
     'storeMap', coalesce((
       select jsonb_object_agg(store, jsonb_build_object(
@@ -425,6 +429,48 @@ begin
 end;
 $$;
 
+-- Thay thế bảng stocks từ Excel format mới (history, không còn pic trong stocks).
+create or replace function admin_upsert_stocks(p_password text, p_rows jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_count int;
+begin
+  if not admin_check(p_password) then
+    return jsonb_build_object('error', 'Sai mật khẩu admin');
+  end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then
+    return jsonb_build_object('error', 'Dữ liệu rows không hợp lệ');
+  end if;
+
+  truncate table stocks;
+
+  insert into stocks (
+    store, store_name, article, article_name, thung, risk, history,
+    stock_day, stock, current_stock, counted_stock, note, lat, long,
+    stock_check, time_stamp, location_check, image, pic_status, pic_comment
+  )
+  select
+    r->>'store', r->>'store_name', r->>'article', r->>'article_name',
+    r->>'thung', r->>'risk', r->>'history',
+    r->>'stock_day', r->>'stock',
+    coalesce(nullif(r->>'current_stock',  ''), ''),
+    coalesce(nullif(r->>'counted_stock',  ''), ''),
+    coalesce(nullif(r->>'note',           ''), ''),
+    coalesce(nullif(r->>'lat',            ''), ''),
+    coalesce(nullif(r->>'long',           ''), ''),
+    coalesce(nullif(r->>'stock_check',    ''), ''),
+    coalesce(nullif(r->>'time_stamp',     ''), ''),
+    coalesce(nullif(r->>'location_check', ''), ''),
+    coalesce(nullif(r->>'image',          ''), ''),
+    coalesce(nullif(r->>'pic_status',     ''), ''),
+    coalesce(nullif(r->>'pic_comment',    ''), '')
+  from jsonb_array_elements(p_rows) r;
+
+  select count(*) into v_count from stocks;
+  return jsonb_build_object('success', true, 'table', 'stocks', 'inserted', v_count);
+end;
+$$;
+
 -- ── Grants: anon chỉ được EXECUTE các RPC (không SELECT bảng) ─────────────────
 
 grant execute on function get_stores()                                   to anon;
@@ -440,3 +486,4 @@ grant execute on function batch_save_pic_comment(text, jsonb)            to anon
 grant execute on function admin_check(text)                              to anon;
 grant execute on function admin_export_all(text)                         to anon;
 grant execute on function admin_replace_table(text, text, jsonb)         to anon;
+grant execute on function admin_upsert_stocks(text, jsonb)               to anon;
