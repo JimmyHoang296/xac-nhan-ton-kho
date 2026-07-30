@@ -368,18 +368,15 @@
 
 /* Màu từng trạng thái */
 .pfNone  { border-color: #dadce0; }
-.pfOk   { border-color: #34a853; color: #137333; }
-.pfOk   .pfCount { background: #e6f4ea; color: #137333; }
-.pfXlvp { border-color: #ea4335; color: #c5221f; }
-.pfXlvp .pfCount { background: #fce8e6; color: #c5221f; }
-.pfXmt  { border-color: #fbbc04; color: #a05000; }
-.pfXmt  .pfCount { background: #fef7e0; color: #a05000; }
+.pfNext  { border-color: #1a73e8; color: #1557b0; }
+.pfNext  .pfCount { background: #e8f0fe; color: #1557b0; }
+.pfEx    { border-color: #34a853; color: #137333; }
+.pfEx    .pfCount { background: #e6f4ea; color: #137333; }
 
 /* Active state */
 .pfChipActive                    { background: #f1f3f4; border-color: #5f6368; }
-.pfOk.pfChipActive               { background: #e6f4ea; border-color: #34a853; }
-.pfXlvp.pfChipActive             { background: #fce8e6; border-color: #ea4335; }
-.pfXmt.pfChipActive              { background: #fef7e0; border-color: #fbbc04; }
+.pfNext.pfChipActive             { background: #e8f0fe; border-color: #1a73e8; }
+.pfEx.pfChipActive               { background: #e6f4ea; border-color: #34a853; }
 .pfNone.pfChipActive             { background: #f1f3f4; border-color: #5f6368; }
 
 /* Risk filter chips */
@@ -567,9 +564,8 @@
   white-space: nowrap;
   letter-spacing: 0.03em;
 }
-.picStatusOk          { background: #e6f4ea; color: #137333; }
-.picStatusXlvp        { background: #fce8e6; color: #c5221f; }
-.picStatusXacMinhThem { background: #fef7e0; color: #a05000; }
+.picStatusNext { background: #e8f0fe; color: #1557b0; }
+.picStatusEx   { background: #e6f4ea; color: #137333; }
 
 /* ── Placeholder ── */
 .detailPlaceholder {

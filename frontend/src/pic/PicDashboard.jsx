@@ -87,11 +87,13 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
     : byPicStatus.filter(s => normalizeRisk(s.risk) === riskFilter);
 
   const picCounts = {
-    all:           stocks.length,
-    none:          stocks.filter(s => !s.pic_status || s.pic_status === '').length,
-    ok:            stocks.filter(s => s.pic_status === 'ok').length,
-    xlvp:          stocks.filter(s => s.pic_status === 'xlvp').length,
-    xac_minh_them: stocks.filter(s => s.pic_status === 'xac_minh_them').length,
+    all:  stocks.length,
+    none: stocks.filter(s => !s.pic_status || s.pic_status === '').length,
+    next: stocks.filter(s => s.pic_status === 'next').length,
+    ex1:  stocks.filter(s => s.pic_status === 'ex1').length,
+    ex2:  stocks.filter(s => s.pic_status === 'ex2').length,
+    ex3:  stocks.filter(s => s.pic_status === 'ex3').length,
+    ex4:  stocks.filter(s => s.pic_status === 'ex4').length,
   };
 
   const riskCounts = {
@@ -273,11 +275,13 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
 
             <div className={styles.picFilterBar}>
               {[
-                { key: 'all',           label: 'Tất cả',        cls: '',               group: 'status' },
-                { key: 'none',          label: 'Chưa set',      cls: styles.pfNone,    group: 'status' },
-                { key: 'ok',            label: 'OK',            cls: styles.pfOk,      group: 'status' },
-                { key: 'xlvp',          label: 'XLVP',          cls: styles.pfXlvp,    group: 'status' },
-                { key: 'xac_minh_them', label: 'Xác minh thêm', cls: styles.pfXmt,     group: 'status' },
+                { key: 'all',  label: 'Tất cả',                 cls: ''             },
+                { key: 'none', label: 'Chưa set',               cls: styles.pfNone  },
+                { key: 'next', label: 'XN tiếp tuần sau',       cls: styles.pfNext  },
+                { key: 'ex1',  label: 'Miễn 1 tuần',            cls: styles.pfEx    },
+                { key: 'ex2',  label: 'Miễn 2 tuần',            cls: styles.pfEx    },
+                { key: 'ex3',  label: 'Miễn 3 tuần',            cls: styles.pfEx    },
+                { key: 'ex4',  label: 'Miễn 4 tuần',            cls: styles.pfEx    },
               ].map(({ key, label, cls }) => (
                 <button
                   key={'s-' + key}
@@ -517,9 +521,8 @@ function StockRow({ stock, isConfirmed, isSelected, hasUnsaved, onClick }) {
     ? Number(stock.counted_stock) - Number(stock.current_stock || 0)
     : null;
 
-  const statusCls = stock.pic_status === 'ok'            ? styles.picStatusOk
-                  : stock.pic_status === 'xlvp'          ? styles.picStatusXlvp
-                  : stock.pic_status === 'xac_minh_them' ? styles.picStatusXacMinhThem
+  const statusCls = stock.pic_status === 'next'           ? styles.picStatusNext
+                  : ['ex1','ex2','ex3','ex4'].includes(stock.pic_status) ? styles.picStatusEx
                   : null;
 
   return (
@@ -1131,9 +1134,11 @@ function downloadExcelByQlkv(pic, stocks, grRecords = []) {
 }
 
 const PIC_STATUS_LABELS = {
-  ok:            'OK',
-  xlvp:          'XLVP',
-  xac_minh_them: 'Xác minh thêm',
+  next: 'XN tiếp tuần sau',
+  ex1:  'Miễn 1 tuần',
+  ex2:  'Miễn 2 tuần',
+  ex3:  'Miễn 3 tuần',
+  ex4:  'Miễn 4 tuần',
 };
 
 function downloadExcel(pic, stocks, grRecords = []) {
