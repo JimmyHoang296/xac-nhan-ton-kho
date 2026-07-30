@@ -1151,6 +1151,9 @@
    DESKTOP ≥ 1024px — master-detail split
    ═══════════════════════════════════════ */
 @media (min-width: 1024px) {
+  /* Hide mobile-only nav bar on desktop */
+  .mobileNavBar { display: none; }
+
   /* Header: 1 row */
   .headerInner {
     flex-wrap: nowrap;
@@ -1308,6 +1311,58 @@
 .grBadge:hover  { background: #d2e3fc; }
 .grBadgePending { background: #fef7e0; color: #e37400; }
 .grBadgePending:hover { background: #fde89e; }
+
+/* ── Mobile nav bar (back + prev/next) — hidden on desktop ── */
+.mobileNavBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e8eaed;
+  flex-shrink: 0;
+}
+
+.mobileBackBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.6rem;
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1a73e8;
+  cursor: pointer;
+}
+.mobileBackBtn:active { background: #e8f0fe; }
+
+.mobileNavPos {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5f6368;
+}
+
+.mobileNavArrows {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.mobileArrowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  color: #1a73e8;
+  cursor: pointer;
+}
+.mobileArrowBtn:disabled { color: #bdc1c6; border-color: #f1f3f4; background: #f8f9fa; cursor: default; }
+.mobileArrowBtn:not(:disabled):active { background: #e8f0fe; }
 
 /* ── Detail pane tabs ── */
 .detailTabs {

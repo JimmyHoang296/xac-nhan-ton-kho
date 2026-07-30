@@ -171,6 +171,24 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
     setSelectedStore(null);
   }
 
+  const currentIdx = selectedKey
+    ? filteredStocks.findIndex(s => `${s.store}-${s.article}` === selectedKey)
+    : -1;
+
+  function handleNavPrev() {
+    if (currentIdx > 0) {
+      const s = filteredStocks[currentIdx - 1];
+      handleSelectStock(`${s.store}-${s.article}`, s.store);
+    }
+  }
+
+  function handleNavNext() {
+    if (currentIdx >= 0 && currentIdx < filteredStocks.length - 1) {
+      const s = filteredStocks[currentIdx + 1];
+      handleSelectStock(`${s.store}-${s.article}`, s.store);
+    }
+  }
+
 
   return (
     <>
@@ -430,6 +448,41 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
         <div className={`${styles.detailPane} ${selectedStore ? styles.detailPaneVisible : ''}`}>
           {selectedStore ? (
             <>
+              {/* Mobile-only nav bar: back + prev/next */}
+              <div className={styles.mobileNavBar}>
+                <button className={styles.mobileBackBtn} onClick={handleBackToList}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Danh sách
+                </button>
+                <span className={styles.mobileNavPos}>
+                  {currentIdx >= 0 ? `${currentIdx + 1} / ${filteredStocks.length}` : ''}
+                </span>
+                <div className={styles.mobileNavArrows}>
+                  <button
+                    className={styles.mobileArrowBtn}
+                    onClick={handleNavPrev}
+                    disabled={currentIdx <= 0}
+                    title="Sản phẩm trước"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  <button
+                    className={styles.mobileArrowBtn}
+                    onClick={handleNavNext}
+                    disabled={currentIdx < 0 || currentIdx >= filteredStocks.length - 1}
+                    title="Sản phẩm tiếp theo"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
               {/* Tab bar */}
               <div className={styles.detailTabs}>
                 <button
