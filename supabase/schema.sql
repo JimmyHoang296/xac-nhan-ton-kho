@@ -47,21 +47,23 @@ create index stocks_sa_idx      on stocks (store, article);
 
 create table stores (
   store      text,
+  address    text,
   store_name text,
   lat        text,
   long       text,
   cht        text,
   sdt_cht    text,
   qlkv       text,
-  qlkv_id    text,
   sdt_qlkv   text,
-  kstt       text,
+  qlkv_id    text,
   gdv        text,
   gdv_id     text,
   gdm        text,
   gdm_id     text,
   gdc        text,
-  gdc_id     text
+  gdc_id     text,
+  kstt       text,
+  chuoi      text
 );
 
 create index stores_store_idx on stores (store);
