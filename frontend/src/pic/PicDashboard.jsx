@@ -191,7 +191,6 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
 
 
   return (
-    <>
     <div className={styles.wrapper}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
@@ -549,20 +548,12 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
         </div>
       )}
 
-    </div>
+      {/* Image lightbox */}
+      {lightboxUrl && (
+        <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      )}
 
-    {lightboxUrl && (
-      <div className={styles.lightboxOverlay} onClick={() => setLightboxUrl(null)}>
-        <img
-          src={lightboxUrl}
-          alt="Phóng to"
-          className={styles.lightboxImg}
-          onClick={e => e.stopPropagation()}
-        />
-        <button className={styles.lightboxClose} onClick={() => setLightboxUrl(null)}>✕</button>
-      </div>
-    )}
-    </>
+    </div>
   );
 }
 
@@ -1193,6 +1184,55 @@ const PIC_STATUS_LABELS = {
   ex3:  'Miễn 3 tuần',
   ex4:  'Miễn 4 tuần',
 };
+
+/* ─────────────────────────────────────────
+   Lightbox — phóng to ảnh (inline styles để đảm bảo position:fixed hoạt động)
+───────────────────────────────────────── */
+function Lightbox({ url, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ position: 'relative', maxWidth: '92vw', maxHeight: '92vh', cursor: 'default' }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute', top: -14, right: -14,
+            width: 36, height: 36, borderRadius: '50%', border: 'none',
+            background: '#fff', color: '#111', fontSize: 22, lineHeight: 1,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)', zIndex: 1,
+          }}
+        >×</button>
+        <img
+          src={url}
+          alt="Ảnh phóng to"
+          style={{
+            maxWidth: '92vw', maxHeight: '88vh', height: 'auto',
+            display: 'block', borderRadius: 8,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            background: '#fff',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function downloadExcel(pic, stocks, grRecords = []) {
   const rows = stocks.map(s => ({
