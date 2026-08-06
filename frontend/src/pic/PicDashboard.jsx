@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { batchSavePicComment } from '../api';
 import styles from './PicDashboard.module.css';
@@ -548,9 +549,9 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
         </div>
       )}
 
-      {/* Image lightbox */}
-      {lightboxUrl && (
-        <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      {lightboxUrl && createPortal(
+        <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />,
+        document.body
       )}
 
     </div>
