@@ -787,7 +787,7 @@ function DetailPanel({ stock, onBack, onLocalChange, hasUnsaved, onImageClick })
                   alt={`Ảnh ${idx + 1}`}
                   className={styles.confirmImg}
                   style={{ cursor: 'zoom-in' }}
-                  onClick={() => onImageClick(url.trim())}
+                  onClick={() => onImageClick(imageUrl(url.trim()))}
                 />
                 <a href={url.trim()} target="_blank" rel="noreferrer" className={styles.imgLink}>
                   Mở ảnh {stock.image.split(',').length > 1 ? idx + 1 : 'gốc'}
