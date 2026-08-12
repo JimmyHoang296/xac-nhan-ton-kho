@@ -16,15 +16,17 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
   }, [groups.length]);
 
   const grandTotal = groups.reduce((acc, g) => {
-    acc.stores     += g.stores;
-    acc.storesDone += g.storesDone;
-    acc.articles   += g.articles;
-    acc.artDone    += g.artDone;
-    acc.reviewed   += g.reviewed;
-    acc.grTotal    += g.grTotal;
-    acc.grDone     += g.grDone;
+    acc.stores       += g.stores;
+    acc.storesDone   += g.storesDone;
+    acc.articles     += g.articles;
+    acc.artDone      += g.artDone;
+    acc.reviewed     += g.reviewed;
+    acc.grTotal      += g.grTotal;
+    acc.grDone       += g.grDone;
+    acc.poStores     += g.poStores;
+    acc.poStoresDone += g.poStoresDone;
     return acc;
-  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 });
+  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, poStores: 0, poStoresDone: 0 });
 
   function toggleQlkv(qlkv) {
     setExpanded(prev => ({ ...prev, [qlkv]: !prev[qlkv] }));
@@ -69,7 +71,7 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
           </div>
         </div>
 
-        {!loading && !error && stocks.length > 0 && (
+        {!loading && !error && (stocks.length > 0 || grRecords.length > 0) && (
           <div className={styles.summaryBar}>
             <SummaryCard label="Tổng CH"  value={grandTotal.stores} />
             <SummaryCard label="CH xong"  value={grandTotal.storesDone} color="green"
@@ -82,6 +84,9 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
             <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
             <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
               sub={pct(grandTotal.grDone, grandTotal.grTotal)} />
+            <SummaryCard label="CH có PO"   value={grandTotal.poStores} />
+            <SummaryCard label="CH PO xong" value={grandTotal.poStoresDone} color="green"
+              sub={pct(grandTotal.poStoresDone, grandTotal.poStores)} />
           </div>
         )}
       </header>
@@ -117,6 +122,8 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
                   <SortTh col="grPending"  sort={sort} onSort={handleSort} cls={styles.thNum}>PO chờ</SortTh>
                   <SortTh col="grDone"     sort={sort} onSort={handleSort} cls={styles.thNum}>PO đã XN</SortTh>
                   <SortTh col="grPct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ PO</SortTh>
+                  <SortTh col="poStores"     sort={sort} onSort={handleSort} cls={styles.thNum}>CH có PO</SortTh>
+                  <SortTh col="poStoresDone" sort={sort} onSort={handleSort} cls={styles.thNum}>CH PO xong</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -153,6 +160,10 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
                       <td className={styles.pctCell}>
                         <ProgressBar value={g.grDone} total={g.grTotal} color="blue" />
                       </td>
+                      <td className={styles.numCell}>{g.poStores}</td>
+                      <td className={styles.numCell}>
+                        <span className={isDone(g.poStoresDone, g.poStores) ? styles.numDone : ''}>{g.poStoresDone}</span>
+                      </td>
                     </tr>
 
                     {/* Store rows */}
@@ -184,6 +195,8 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
                         <td className={styles.pctCell}>
                           <ProgressBar value={s.grDone} total={s.grTotal} color="blue" />
                         </td>
+                        <td className={styles.numCell}>—</td>
+                        <td className={styles.numCell}>—</td>
                       </tr>
                     ))}
                   </React.Fragment>
@@ -252,10 +265,15 @@ function isDone(a, b) { return b > 0 && a === b; }
 function pct(a, b)    { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
 function buildQlkvGroups(stocks, grRecords = []) {
+  // qlkv/store_name lấy từ chính record GR (get_pic_gr đã join sẵn từ stores) — cần thiết
+  // cho các CH chỉ có PO, không có dòng nào trong stocks nên không lấy được qua storeArt.
   const grByStore = {};
   grRecords.forEach(r => {
     const key = String(r.site);
-    if (!grByStore[key]) grByStore[key] = { total: 0, done: 0 };
+    if (!grByStore[key]) grByStore[key] = {
+      total: 0, done: 0,
+      qlkv: r.qlkv || 'Chưa phân công', store_name: r.store_name || '',
+    };
     grByStore[key].total++;
     if (r.time_stamp && r.time_stamp !== '') grByStore[key].done++;
   });
@@ -275,9 +293,20 @@ function buildQlkvGroups(stocks, grRecords = []) {
   });
 
   const qlkvMap = {};
+  function ensureCell(qlkv) {
+    if (!qlkvMap[qlkv]) qlkvMap[qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, poStores: 0, poStoresDone: 0, storeList: [] };
+    return qlkvMap[qlkv];
+  }
+  function applyPoStore(cell, gr) {
+    if (gr.total > 0) {
+      cell.poStores++;
+      if (gr.done === gr.total) cell.poStoresDone++;
+    }
+  }
+
+  const stockStores = new Set(Object.keys(storeArt));
   Object.entries(storeArt).forEach(([storeCode, { store_name, qlkv, total, done, reviewed, grTotal, grDone }]) => {
-    if (!qlkvMap[qlkv]) qlkvMap[qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, storeList: [] };
-    const cell = qlkvMap[qlkv];
+    const cell = ensureCell(qlkv);
     cell.stores++;
     if (done === total) cell.storesDone++;
     cell.articles += total;
@@ -285,7 +314,21 @@ function buildQlkvGroups(stocks, grRecords = []) {
     cell.reviewed += reviewed;
     cell.grTotal  += grTotal;
     cell.grDone   += grDone;
+    applyPoStore(cell, { total: grTotal, done: grDone });
     cell.storeList.push({ store: storeCode, store_name, articles: total, artDone: done, reviewed, grTotal, grDone });
+  });
+
+  // CH chỉ có PO, không có dòng tồn kho nào — trước đây bị bỏ sót hoàn toàn.
+  Object.entries(grByStore).forEach(([storeCode, gr]) => {
+    if (stockStores.has(storeCode)) return;
+    const cell = ensureCell(gr.qlkv);
+    cell.grTotal += gr.total;
+    cell.grDone  += gr.done;
+    applyPoStore(cell, gr);
+    cell.storeList.push({
+      store: storeCode, store_name: gr.store_name,
+      articles: 0, artDone: 0, reviewed: 0, grTotal: gr.total, grDone: gr.done,
+    });
   });
 
   return Object.entries(qlkvMap)

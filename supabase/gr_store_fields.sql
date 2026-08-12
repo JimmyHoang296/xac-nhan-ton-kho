@@ -1,9 +1,17 @@
 -- Thêm cht / sdt_cht / qlkv / sdt_qlkv vào get_pic_gr và get_qlkv_gr
 -- Chạy trong Supabase ▸ SQL Editor
 
+-- p_pic: username đăng nhập (bảng pic.pic). gr_records.pic lưu TÊN hiển thị của PIC, không
+-- phải username, nên cần tra pic.name (tên hiển thị ứng với username) rồi mới khớp với
+-- gr_records.pic. Nếu p_pic không khớp username nào thì fallback khớp trực tiếp như cũ.
 CREATE OR REPLACE FUNCTION get_pic_gr(p_pic text)
-RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  SELECT jsonb_build_object(
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_name text;
+BEGIN
+  SELECT name INTO v_name FROM pic WHERE BTRIM(pic) = BTRIM(p_pic) LIMIT 1;
+
+  RETURN jsonb_build_object(
     'pic', p_pic,
     'records', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
@@ -30,9 +38,10 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
       ))
       FROM gr_records g
       LEFT JOIN stores st ON st.store::text = g.site::text
-      WHERE BTRIM(g.pic) = BTRIM(p_pic)
+      WHERE BTRIM(g.pic) = BTRIM(COALESCE(NULLIF(v_name, ''), p_pic))
     ), '[]'::jsonb)
   );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_qlkv_gr(p_username text)

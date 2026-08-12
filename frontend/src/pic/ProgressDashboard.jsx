@@ -41,15 +41,17 @@ export default function ProgressDashboard({ pic, onLogout, onSwitchAdmin, onOpen
   }, [groups.length]);
 
   const grandTotal = groups.reduce((acc, g) => {
-    acc.stores     += g.stores;
-    acc.storesDone += g.storesDone;
-    acc.articles   += g.articles;
-    acc.artDone    += g.artDone;
-    acc.reviewed   += g.reviewed;
-    acc.grTotal    += g.grTotal;
-    acc.grDone     += g.grDone;
+    acc.stores       += g.stores;
+    acc.storesDone   += g.storesDone;
+    acc.articles     += g.articles;
+    acc.artDone      += g.artDone;
+    acc.reviewed     += g.reviewed;
+    acc.grTotal      += g.grTotal;
+    acc.grDone       += g.grDone;
+    acc.poStores     += g.poStores;
+    acc.poStoresDone += g.poStoresDone;
     return acc;
-  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 });
+  }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, poStores: 0, poStoresDone: 0 });
 
   function togglePic(pic) {
     setExpKstt(prev => ({ ...prev, [pic]: !prev[pic] }));
@@ -108,6 +110,9 @@ export default function ProgressDashboard({ pic, onLogout, onSwitchAdmin, onOpen
             <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
             <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
               sub={pct(grandTotal.grDone, grandTotal.grTotal)} />
+            <SummaryCard label="CH có PO"   value={grandTotal.poStores} />
+            <SummaryCard label="CH PO xong" value={grandTotal.poStoresDone} color="green"
+              sub={pct(grandTotal.poStoresDone, grandTotal.poStores)} />
           </div>
         )}
       </header>
@@ -144,6 +149,8 @@ export default function ProgressDashboard({ pic, onLogout, onSwitchAdmin, onOpen
                   <SortTh col="grPending"  sort={sort} onSort={handleSort} cls={styles.thNum}>PO chờ</SortTh>
                   <SortTh col="grDone"     sort={sort} onSort={handleSort} cls={styles.thNum}>PO đã XN</SortTh>
                   <SortTh col="grPct"      sort={sort} onSort={handleSort} cls={styles.thPct}>Tỷ lệ PO</SortTh>
+                  <SortTh col="poStores"     sort={sort} onSort={handleSort} cls={styles.thNum}>CH có PO</SortTh>
+                  <SortTh col="poStoresDone" sort={sort} onSort={handleSort} cls={styles.thNum}>CH PO xong</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -191,6 +198,12 @@ export default function ProgressDashboard({ pic, onLogout, onSwitchAdmin, onOpen
                       <td className={styles.pctCell}>
                         <ProgressBar value={picGroup.grDone} total={picGroup.grTotal} color="blue" />
                       </td>
+                      <td className={styles.numCell}>{picGroup.poStores}</td>
+                      <td className={styles.numCell}>
+                        <span className={isDone(picGroup.poStoresDone, picGroup.poStores) ? styles.numDone : ''}>
+                          {picGroup.poStoresDone}
+                        </span>
+                      </td>
                     </tr>
 
                     {/* ── QLKV rows ── */}
@@ -228,6 +241,12 @@ export default function ProgressDashboard({ pic, onLogout, onSwitchAdmin, onOpen
                         </td>
                         <td className={styles.pctCell}>
                           <ProgressBar value={q.grDone} total={q.grTotal} color="blue" />
+                        </td>
+                        <td className={styles.numCell}>{q.poStores}</td>
+                        <td className={styles.numCell}>
+                          <span className={isDone(q.poStoresDone, q.poStores) ? styles.numDone : ''}>
+                            {q.poStoresDone}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -321,8 +340,16 @@ function buildGroups({ stocks, storeMap }, grRecords) {
 
   function ensureCell(pic, qlkv) {
     if (!picMap[pic]) picMap[pic] = {};
-    if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 };
+    if (!picMap[pic][qlkv]) picMap[pic][qlkv] = { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, poStores: 0, poStoresDone: 0 };
     return picMap[pic][qlkv];
+  }
+
+  // Cửa hàng có PO xong khi có ít nhất 1 record PO và tất cả record đã xác nhận.
+  function applyPoStore(cell, gr) {
+    if (gr.total > 0) {
+      cell.poStores++;
+      if (gr.done === gr.total) cell.poStoresDone++;
+    }
   }
 
   // Aggregate stores có stocks — dùng stores.kstt làm source of truth cho PIC
@@ -342,6 +369,7 @@ function buildGroups({ stocks, storeMap }, grRecords) {
     cell.reviewed += reviewed;
     cell.grTotal  += gr.total;
     cell.grDone   += gr.done;
+    applyPoStore(cell, gr);
   });
 
   // Aggregate GR-only stores — stores có PO nhưng không có stocks (bị bỏ qua trước đây)
@@ -354,6 +382,7 @@ function buildGroups({ stocks, storeMap }, grRecords) {
     const cell = ensureCell(pic, qlkv);
     cell.grTotal += gr.total;
     cell.grDone  += gr.done;
+    applyPoStore(cell, gr);
   });
 
   return Object.entries(picMap)
@@ -364,15 +393,17 @@ function buildGroups({ stocks, storeMap }, grRecords) {
         .map(([qlkv, stats]) => ({ qlkv, ...stats }));
 
       const tot = qlkvList.reduce((acc, q) => {
-        acc.stores     += q.stores;
-        acc.storesDone += q.storesDone;
-        acc.articles   += q.articles;
-        acc.artDone    += q.artDone;
-        acc.reviewed   += q.reviewed;
-        acc.grTotal    += q.grTotal;
-        acc.grDone     += q.grDone;
+        acc.stores       += q.stores;
+        acc.storesDone   += q.storesDone;
+        acc.articles     += q.articles;
+        acc.artDone      += q.artDone;
+        acc.reviewed     += q.reviewed;
+        acc.grTotal      += q.grTotal;
+        acc.grDone       += q.grDone;
+        acc.poStores     += q.poStores;
+        acc.poStoresDone += q.poStoresDone;
         return acc;
-      }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0 });
+      }, { stores: 0, storesDone: 0, articles: 0, artDone: 0, reviewed: 0, grTotal: 0, grDone: 0, poStores: 0, poStoresDone: 0 });
 
       return { pic, qlkvList, ...tot };
     });

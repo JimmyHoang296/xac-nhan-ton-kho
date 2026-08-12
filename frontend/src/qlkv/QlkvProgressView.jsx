@@ -10,9 +10,6 @@ export default function QlkvProgressView({ username, name, role, stocks, grRecor
   const rows = buildStoreRows(stocks, grRecords);
   const hierarchy = isManager ? buildProgressHierarchy(stocks, grRecords, role) : null;
 
-  const hierarchyGrandTotal = isManager && hierarchy
-    ? sumHierarchy(hierarchy) : null;
-
   const grandTotal = rows.reduce((acc, r) => {
     acc.articles += r.articles;
     acc.artDone  += r.artDone;
@@ -20,7 +17,12 @@ export default function QlkvProgressView({ username, name, role, stocks, grRecor
     acc.grDone   += r.grDone;
     return acc;
   }, { articles: 0, artDone: 0, grTotal: 0, grDone: 0 });
-  const storesDone = rows.filter(r => r.artDone === r.articles).length;
+  // "Tổng CH"/"CH xong" chỉ tính CH có nghĩa vụ tồn kho — CH chỉ có PO tính riêng bên dưới.
+  const stockRows   = rows.filter(r => r.hasStock);
+  const storesDone  = stockRows.filter(r => r.artDone === r.articles).length;
+  const poRows      = rows.filter(r => r.grTotal > 0);
+  const poStores    = poRows.length;
+  const poStoresDone = poRows.filter(r => r.grDone === r.grTotal).length;
 
   function handleSort(col) {
     setSort(prev => ({
@@ -52,19 +54,21 @@ export default function QlkvProgressView({ username, name, role, stocks, grRecor
           </div>
         </div>
 
-        {!loading && !error && stocks.length > 0 && (
+        {!loading && !error && (stocks.length > 0 || grRecords.length > 0) && (
           <div className={styles.summaryBar}>
             {isManager && hierarchy && <SummaryCard label={role === 'gdv' ? 'QLKV' : role === 'gdm' ? 'GDV' : 'GDM'} value={hierarchy.length} />}
-            <SummaryCard label="Tổng CH"  value={rows.length} />
+            <SummaryCard label="Tổng CH"  value={stockRows.length} />
             <SummaryCard label="CH xong"  value={storesDone} color="green"
-              sub={fmtPct(storesDone, rows.length)} />
+              sub={fmtPct(storesDone, stockRows.length)} />
             <SummaryCard label="Tổng mã"  value={grandTotal.articles} />
             <SummaryCard label="Mã đã XN" value={grandTotal.artDone} color="green"
               sub={fmtPct(grandTotal.artDone, grandTotal.articles)} />
-            <SummaryCard label="Tổng PO"  value={isManager ? (hierarchyGrandTotal?.grTotal ?? 0) : grandTotal.grTotal} />
-            <SummaryCard label="PO đã XN" value={isManager ? (hierarchyGrandTotal?.grDone ?? 0) : grandTotal.grDone} color="green"
-              sub={fmtPct(isManager ? (hierarchyGrandTotal?.grDone ?? 0) : grandTotal.grDone,
-                          isManager ? (hierarchyGrandTotal?.grTotal ?? 0) : grandTotal.grTotal)} />
+            <SummaryCard label="Tổng PO"  value={grandTotal.grTotal} />
+            <SummaryCard label="PO đã XN" value={grandTotal.grDone} color="green"
+              sub={fmtPct(grandTotal.grDone, grandTotal.grTotal)} />
+            <SummaryCard label="CH có PO"   value={poStores} />
+            <SummaryCard label="CH PO xong" value={poStoresDone} color="green"
+              sub={fmtPct(poStoresDone, poStores)} />
           </div>
         )}
       </header>
@@ -184,7 +188,10 @@ function sortStoreRows(rows, { col, dir }) {
 
 function fmtPct(a, b) { return b ? `${Math.round(a / b * 100)}%` : ''; }
 
-/* ─── Hierarchy for progress view ─── */
+/* ─── Hierarchy for progress view ───
+   Lưu ý: cây phân cấp nhóm theo qlkv/gdv/gdm lấy trực tiếp từ stocks, nên CH chỉ có PO
+   (không có dòng tồn kho) sẽ không xuất hiện trong cây này — số liệu "CH có PO"/"CH PO xong"
+   ở summary bar phía trên tính riêng từ buildStoreRows nên vẫn đầy đủ. */
 function buildProgressHierarchy(stocks, grRecords = [], role) {
   var levels;
   if (role === 'gdv') levels = ['qlkv'];
@@ -242,14 +249,6 @@ function buildProgressHierarchy(stocks, grRecords = [], role) {
   }
 
   return buildLevel(stocks, 0);
-}
-
-function sumHierarchy(nodes) {
-  return nodes.reduce((acc, n) => {
-    acc.grTotal += n.grTotal || 0;
-    acc.grDone  += n.grDone  || 0;
-    return acc;
-  }, { grTotal: 0, grDone: 0 });
 }
 
 function HierarchyProgressNode({ node, sort, onSort, depth }) {
@@ -333,7 +332,7 @@ function buildStoreRows(stocks, grRecords = []) {
   const grByStore = {};
   grRecords.forEach(r => {
     const key = String(r.site);
-    if (!grByStore[key]) grByStore[key] = { total: 0, done: 0 };
+    if (!grByStore[key]) grByStore[key] = { total: 0, done: 0, store_name: r.store_name || '' };
     grByStore[key].total++;
     if (r.time_stamp && r.time_stamp !== '') grByStore[key].done++;
   });
@@ -342,12 +341,22 @@ function buildStoreRows(stocks, grRecords = []) {
   stocks.forEach(s => {
     const key = String(s.store);
     if (!map[key]) map[key] = {
-      store: key, store_name: s.store_name || '', articles: 0, artDone: 0,
+      store: key, store_name: s.store_name || '', articles: 0, artDone: 0, hasStock: true,
       grTotal: grByStore[key]?.total || 0,
       grDone:  grByStore[key]?.done  || 0,
     };
     map[key].articles++;
     if (s.counted_stock !== null && s.counted_stock !== '') map[key].artDone++;
   });
+
+  // CH chỉ có PO, không có dòng tồn kho nào — trước đây bị bỏ sót hoàn toàn.
+  Object.entries(grByStore).forEach(([key, gr]) => {
+    if (map[key]) return;
+    map[key] = {
+      store: key, store_name: gr.store_name, articles: 0, artDone: 0, hasStock: false,
+      grTotal: gr.total, grDone: gr.done,
+    };
+  });
+
   return Object.values(map).sort((a, b) => String(a.store).localeCompare(String(b.store)));
 }
