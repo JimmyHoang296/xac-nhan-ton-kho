@@ -105,7 +105,8 @@ Cột DB (snake_case) ↔ tiêu đề Excel: `store`, `store_name`, `lat`, `long
 
 #### `pic` — tài khoản PIC
 
-`pic` (Excel: PIC), `password`.
+`pic` (Excel: PIC, username đăng nhập), `password`, `name` (tên hiển thị — **phải khớp giá trị
+`stores.kstt`** để `get_pic_stocks` join đúng cửa hàng phụ trách, xem RPC bên dưới).
 
 #### `qlkv` — tài khoản QLKV
 
@@ -259,6 +260,13 @@ Nhập mã CH (4 ký tự)
 ### Phụ thuộc bảng stores
 - `get_stocks_by_store` (và `confirm_stock`) tra cứu CH trong bảng `stores` trước. Nếu chưa nạp `stores`,
   Store flow báo `"Store not found"` dù `stocks` đã có dữ liệu → **nhớ nạp đủ cả 4 bảng** khi migration.
+
+### PIC login ↔ stores.kstt
+- `stores.kstt` lưu **tên hiển thị** PIC phụ trách CH đó, còn PIC đăng nhập bằng **username**
+  (`pic.pic`). `get_pic_stocks` tra `pic.name` từ username rồi mới khớp với `stores.kstt` — nên
+  **`pic.name` phải trùng chính xác (btrim) với giá trị `kstt` tương ứng trong `stores`**, nếu không
+  trang PIC sẽ trống dù đăng nhập thành công. Admin drill-down (double-click PIC trong "Tổng quan")
+  không qua bước này — truyền thẳng tên `kstt` nên luôn khớp.
 
 ### Nạp Excel thay thế toàn bộ
 - `admin_replace_table` chạy `TRUNCATE` rồi insert → **xoá hết dữ liệu cũ** của bảng (kể cả các cột

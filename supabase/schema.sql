@@ -70,7 +70,8 @@ create index stores_store_idx on stores (store);
 
 create table pic (
   pic      text,
-  password text
+  password text,
+  name     text
 );
 
 create table qlkv (
@@ -123,7 +124,7 @@ create or replace function admin_check(p_password text)
 returns boolean language sql security definer set search_path = public as $$
   select exists (
     select 1 from app_config
-    where key = 'admin_password' and value = p_password
+    where key = 'admin_password' and btrim(value) = btrim(p_password)
   )
 $$;
 
@@ -161,9 +162,18 @@ returns jsonb language sql security definer set search_path = public as $$
   end;
 $$;
 
+-- p_pic: username đăng nhập (bảng pic.pic). stores.kstt lưu TÊN hiển thị của PIC, không phải
+-- username, nên cần tra pic.name (tên hiển thị ứng với username) rồi mới khớp với stores.kstt.
+-- Nếu p_pic không khớp username nào (vd: admin drill-down truyền thẳng tên kstt) thì fallback
+-- khớp trực tiếp p_pic với stores.kstt như cũ.
 create or replace function get_pic_stocks(p_pic text)
-returns jsonb language sql security definer set search_path = public as $$
-  select jsonb_build_object(
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_name text;
+begin
+  select name into v_name from pic where btrim(pic) = btrim(p_pic) limit 1;
+
+  return jsonb_build_object(
     'pic', p_pic,
     'stocks', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -180,9 +190,10 @@ returns jsonb language sql security definer set search_path = public as $$
       ))
       from stores st
       join stocks s on s.store::text = st.store::text
-      where btrim(st.kstt) = btrim(p_pic)
+      where btrim(st.kstt) = btrim(coalesce(nullif(v_name, ''), p_pic))
     ), '[]'::jsonb)
   );
+end;
 $$;
 
 create or replace function get_qlkv_stocks(p_username text)
@@ -389,7 +400,8 @@ $$;
 -- ── Admin RPCs (cổng mật khẩu) ───────────────────────────────────────────────
 
 create or replace function admin_export_all(p_password text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public
+set statement_timeout = '120s' as $$
 begin
   if not admin_check(p_password) then
     return jsonb_build_object('error', 'Sai mật khẩu admin');
@@ -406,7 +418,8 @@ $$;
 -- Hàm dùng chung: thay thế toàn bộ 1 bảng từ jsonb array các dòng.
 -- p_table chỉ nhận whitelist để tránh SQL injection.
 create or replace function admin_replace_table(p_password text, p_table text, p_rows jsonb)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public
+set statement_timeout = '120s' as $$
 declare
   v_inserted int;
 begin
@@ -433,7 +446,8 @@ $$;
 
 -- Thay thế bảng stocks từ Excel format mới (history, không còn pic trong stocks).
 create or replace function admin_upsert_stocks(p_password text, p_rows jsonb)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public
+set statement_timeout = '120s' as $$
 declare
   v_count int;
 begin

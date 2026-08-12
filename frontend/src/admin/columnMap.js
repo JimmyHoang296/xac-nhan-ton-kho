@@ -71,6 +71,7 @@ export const TABLES = {
   PIC: [
     ['PIC', 'pic'],
     ['password', 'password'],
+    ['name', 'name'],
   ],
   qlkv: [
     ['username', 'username'],
