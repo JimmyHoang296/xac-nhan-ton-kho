@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchPicStocks, fetchPicGr } from '../api';
+import { fetchPicStocks, fetchPicGr, fetchPicAbnormal } from '../api';
 import { supabase } from '../supabaseClient';
 import PicLogin from './PicLogin';
 import PicDashboard from './PicDashboard';
 import ProgressDashboard from './ProgressDashboard';
 import PicProgressView from './PicProgressView';
 import GrDashboard from '../components/GrDashboard';
+import AbnormalDashboard from './AbnormalDashboard';
 import AdminPanel from '../admin/AdminPanel';
 
 const SESSION_KEY = 'pic_session';
@@ -17,6 +18,7 @@ export default function PicApp() {
   const [view,       setView]       = useState(() => sessionStorage.getItem(VIEW_KEY) || 'progress');
   const [stocks,     setStocks]     = useState([]);
   const [grRecords,  setGrRecords]  = useState([]);
+  const [abnormalRecords, setAbnormalRecords] = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
   const [adminPwd,   setAdminPwd]   = useState('');
@@ -30,12 +32,14 @@ export default function PicApp() {
     setLoading(true);
     setError('');
     try {
-      const [stockData, grData] = await Promise.all([
+      const [stockData, grData, abnormalData] = await Promise.all([
         fetchPicStocks(pic),
         fetchPicGr(pic).catch(() => ({ records: [] })),
+        fetchPicAbnormal(pic).catch(() => ({ records: [] })),
       ]);
       setStocks(stockData.stocks);
       setGrRecords(grData.records || []);
+      setAbnormalRecords(abnormalData.records || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,6 +61,7 @@ export default function PicApp() {
     setPic(null);
     setStocks([]);
     setGrRecords([]);
+    setAbnormalRecords([]);
   }
 
   function switchView(v) {
@@ -68,12 +73,14 @@ export default function PicApp() {
     setLoading(true);
     setError('');
     try {
-      const [stockData, grData] = await Promise.all([
+      const [stockData, grData, abnormalData] = await Promise.all([
         fetchPicStocks(picName),
         fetchPicGr(picName).catch(() => ({ records: [] })),
+        fetchPicAbnormal(picName).catch(() => ({ records: [] })),
       ]);
       setStocks(stockData.stocks || []);
       setGrRecords(grData.records || []);
+      setAbnormalRecords(abnormalData.records || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -85,6 +92,7 @@ export default function PicApp() {
     setDrillPic(picName);
     setStocks([]);
     setGrRecords([]);
+    setAbnormalRecords([]);
     switchView('drill-detail');
     loadDrillPic(picName);
   }
@@ -94,13 +102,14 @@ export default function PicApp() {
     setDrillPic(null);
     setStocks([]);
     setGrRecords([]);
+    setAbnormalRecords([]);
   }
 
   if (!pic) return <PicLogin onLogin={handleLogin} />;
 
   if (ADMIN_ACCOUNTS.includes(pic.toLowerCase())) {
     // Drill-down: xem chi tiết PIC được double-click từ ProgressDashboard
-    if ((view === 'drill-detail' || view === 'drill-gr') && drillPic) {
+    if ((view === 'drill-detail' || view === 'drill-gr' || view === 'drill-abnormal') && drillPic) {
       const drillShared = {
         pic: drillPic, stocks, setStocks, grRecords,
         loading, error,
@@ -122,11 +131,28 @@ export default function PicApp() {
           />
         );
       }
+      if (view === 'drill-abnormal') {
+        return (
+          <AbnormalDashboard
+            pic={drillPic}
+            records={abnormalRecords}
+            setRecords={setAbnormalRecords}
+            loading={loading}
+            error={error}
+            onRefresh={() => loadDrillPic(drillPic)}
+            onLogout={handleLogout}
+            onSwitchProgress={handleBackToProgress}
+            onSwitchStock={() => switchView('drill-detail')}
+            headerLabel={`Tồn bất thường — ${drillPic}`}
+          />
+        );
+      }
       return (
         <PicDashboard
           {...drillShared}
           onSwitchProgress={handleBackToProgress}
           onSwitchGr={() => switchView('drill-gr')}
+          onSwitchAbnormal={() => switchView('drill-abnormal')}
         />
       );
     }
@@ -191,7 +217,14 @@ export default function PicApp() {
   const shared = { pic, stocks, setStocks, grRecords, loading, error, onRefresh: load, onLogout: handleLogout };
 
   if (view === 'detail')
-    return <PicDashboard {...shared} onSwitchProgress={() => switchView('progress')} onSwitchGr={() => switchView('gr')} />;
+    return (
+      <PicDashboard
+        {...shared}
+        onSwitchProgress={() => switchView('progress')}
+        onSwitchGr={() => switchView('gr')}
+        onSwitchAbnormal={() => switchView('abnormal')}
+      />
+    );
 
   if (view === 'gr')
     return (
@@ -208,7 +241,31 @@ export default function PicApp() {
       />
     );
 
-  return <PicProgressView {...shared} onViewDetail={() => switchView('detail')} onViewGr={() => switchView('gr')} />;
+  if (view === 'abnormal')
+    return (
+      <AbnormalDashboard
+        pic={pic}
+        records={abnormalRecords}
+        setRecords={setAbnormalRecords}
+        loading={loading}
+        error={error}
+        onRefresh={load}
+        onLogout={handleLogout}
+        onSwitchProgress={() => switchView('progress')}
+        onSwitchStock={() => switchView('detail')}
+        onSwitchGr={() => switchView('gr')}
+        headerLabel="Tồn bất thường — PIC"
+      />
+    );
+
+  return (
+    <PicProgressView
+      {...shared}
+      onViewDetail={() => switchView('detail')}
+      onViewGr={() => switchView('gr')}
+      onViewAbnormal={() => switchView('abnormal')}
+    />
+  );
 }
 
 const AS = {

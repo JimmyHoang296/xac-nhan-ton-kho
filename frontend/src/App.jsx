@@ -3,11 +3,13 @@ import StoreSearch from './components/StoreSearch';
 import ConfirmList from './components/ConfirmList';
 import ConfirmModal from './components/ConfirmModal';
 import GrConfirmModal from './components/GrConfirmModal';
+import AbnormalConfirmModal from './components/AbnormalConfirmModal';
 import Toast from './components/Toast';
-import { fetchStocks, fetchGrByStore } from './api';
+import { fetchStocks, fetchGrByStore, fetchAbnormalByStore } from './api';
 
 const isStockConfirmed = s => s.counted_stock !== '' && s.counted_stock !== null && s.counted_stock !== undefined;
 const isGrConfirmed = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
+const isAbnormalConfirmed = r => r.counted_stock !== '' && r.counted_stock !== null && r.counted_stock !== undefined;
 
 export default function App() {
   const [view, setView]           = useState('search'); // 'search' | 'dashboard'
@@ -15,10 +17,12 @@ export default function App() {
   const [storeName, setStoreName] = useState('');
   const [stocks, setStocks]       = useState([]);
   const [grRecords, setGrRecords] = useState([]);
+  const [abnormalRecords, setAbnormalRecords] = useState([]);
   const [loading, setLoading]     = useState(false);
   const [searchError, setSearchError] = useState('');
   const [activeStock, setActiveStock] = useState(null);
   const [activeGr, setActiveGr]   = useState(null);
+  const [activeAbnormal, setActiveAbnormal] = useState(null);
   const [toast, setToast]         = useState(null);
 
   async function handleSearch(code) {
@@ -30,7 +34,10 @@ export default function App() {
       let grData = { records: [] };
       try { grData = await fetchGrByStore(code); } catch { /* table might not exist yet */ }
 
-      if (!stockData.stocks.length && !grData.records.length) {
+      let abnormalData = { records: [] };
+      try { abnormalData = await fetchAbnormalByStore(code); } catch { /* table might not exist yet */ }
+
+      if (!stockData.stocks.length && !grData.records.length && !abnormalData.records.length) {
         setSearchError(`Cửa hàng "${stockData.store_name}" không có dữ liệu nào.`);
         return;
       }
@@ -38,6 +45,7 @@ export default function App() {
       setStoreName(stockData.store_name || '');
       setStocks(stockData.stocks || []);
       setGrRecords(grData.records || []);
+      setAbnormalRecords(abnormalData.records || []);
       setView('dashboard');
     } catch (err) {
       setSearchError(
@@ -69,9 +77,18 @@ export default function App() {
     setToast({ message: 'Xác nhận nhập kho thành công!', type: 'success' });
   }, []);
 
+  const handleAbnormalSuccess = useCallback((article, countedStock, note) => {
+    setAbnormalRecords(prev =>
+      prev.map(r => r.article === article ? { ...r, counted_stock: countedStock, note } : r)
+    );
+    setActiveAbnormal(null);
+    setToast({ message: 'Xác nhận tồn bất thường thành công!', type: 'success' });
+  }, []);
+
   // Computed counts
   const stockPending = stocks.filter(s => !isStockConfirmed(s));
   const grPending     = grRecords.filter(r => !isGrConfirmed(r));
+  const abnormalPending = abnormalRecords.filter(r => !isAbnormalConfirmed(r));
 
   return (
     <>
@@ -125,7 +142,7 @@ export default function App() {
               <span style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a2e' }}>{storeName}</span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: abnormalRecords.length > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: '0.625rem' }}>
               <SummaryCard
                 label="Tồn kho"
                 icon="📦"
@@ -138,15 +155,25 @@ export default function App() {
                 pending={grPending.length}
                 total={grRecords.length}
               />
+              {abnormalRecords.length > 0 && (
+                <SummaryCard
+                  label="Tồn bất thường"
+                  icon="⚠️"
+                  pending={abnormalPending.length}
+                  total={abnormalRecords.length}
+                />
+              )}
             </div>
           </div>
 
-          {/* Gộp chung tồn kho + PO, phân theo trạng thái cần/đã xác nhận — không chia tab theo loại */}
+          {/* Gộp chung tồn kho + PO + tồn bất thường, phân theo trạng thái cần/đã xác nhận */}
           <ConfirmList
             stocks={stocks}
             grRecords={grRecords}
+            abnormalRecords={abnormalRecords}
             onStockClick={setActiveStock}
             onGrClick={setActiveGr}
+            onAbnormalClick={setActiveAbnormal}
           />
         </>
       )}
@@ -166,6 +193,15 @@ export default function App() {
           storeCode={storeCode}
           onClose={() => setActiveGr(null)}
           onSuccess={handleGrSuccess}
+        />
+      )}
+
+      {activeAbnormal && (
+        <AbnormalConfirmModal
+          record={activeAbnormal}
+          storeCode={storeCode}
+          onClose={() => setActiveAbnormal(null)}
+          onSuccess={handleAbnormalSuccess}
         />
       )}
 

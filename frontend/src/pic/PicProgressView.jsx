@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ProgressDashboard.module.css';
 
-export default function PicProgressView({ pic, stocks, grRecords = [], loading, error, onRefresh, onLogout, onViewDetail, onViewGr }) {
+export default function PicProgressView({ pic, stocks, grRecords = [], loading, error, onRefresh, onLogout, onViewDetail, onViewGr, onViewAbnormal }) {
   const [expanded, setExpanded] = useState({});
   const [sort,     setSort]     = useState({ col: null, dir: 'asc' });
 
@@ -67,6 +67,7 @@ export default function PicProgressView({ pic, stocks, grRecords = [], loading, 
             </button>
             <button className={styles.detailBtn} onClick={onViewDetail}>Tồn kho</button>
             {onViewGr && <button className={styles.detailBtn} onClick={onViewGr}>Nhập kho</button>}
+            {onViewAbnormal && <button className={styles.detailBtn} onClick={onViewAbnormal}>Tồn bất thường</button>}
             <button className={styles.logoutBtn} onClick={onLogout}>Đăng xuất</button>
           </div>
         </div>

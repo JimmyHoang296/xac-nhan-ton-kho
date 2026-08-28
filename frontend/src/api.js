@@ -92,6 +92,57 @@ export async function submitGrConfirmation(payload) {
   });
 }
 
+// ── Tồn kho bất thường (PIC tự upload danh sách) ────────────────────────────
+
+export async function fetchAbnormalByStore(store) {
+  return rpc('get_abnormal_by_store', { p_store: String(store) });
+}
+
+export async function fetchPicAbnormal(pic) {
+  return rpc('get_pic_abnormal', { p_pic: pic });
+}
+
+export async function saveAbnormalPicComment(pic, store, article, comment, pic_status) {
+  return rpc('save_abnormal_pic_comment', {
+    p_pic: pic, p_store: String(store), p_article: String(article),
+    p_comment: comment, p_pic_status: pic_status,
+  });
+}
+
+export async function batchSaveAbnormalPicComment(pic, items) {
+  return rpc('batch_save_abnormal_pic_comment', { p_pic: pic, p_items: items });
+}
+
+// rows: [{store, article, article_name, stock, reason}]
+export async function uploadAbnormalStocks(pic, rows) {
+  return rpc('pic_upload_abnormal_stocks', { p_pic: pic, p_rows: rows });
+}
+
+export async function deleteAbnormalStock(pic, store, article) {
+  return rpc('delete_abnormal_stock', { p_pic: pic, p_store: String(store), p_article: String(article) });
+}
+
+// payload: { store, article, current_stock, counted_stock, note, lat, long, images:[{base64,type}] }
+export async function submitAbnormalConfirmation(payload) {
+  const { store, article, current_stock, counted_stock, note, lat, long, images } = payload;
+
+  const imageList = Array.isArray(images) && images.length > 0 ? images.slice(0, 5) : [];
+  const imageUrls = imageList.length > 0
+    ? await uploadImagesToDrive(imageList, String(store), String(article), 'abnormal', '')
+    : [];
+
+  return rpc('confirm_abnormal_stock', {
+    p_store: String(store),
+    p_article: String(article),
+    p_current_stock: current_stock === '' || current_stock == null ? '' : String(current_stock),
+    p_counted_stock: counted_stock == null ? '' : String(counted_stock),
+    p_note: note || '',
+    p_lat: lat == null ? '' : String(lat),
+    p_long: long == null ? '' : String(long),
+    p_image_urls: imageUrls,
+  });
+}
+
 // ── Google Drive upload (qua GAS) ───────────────────────────────────────────
 
 async function uploadImagesToDrive(images, store, article, pic, stock_day) {

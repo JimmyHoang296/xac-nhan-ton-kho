@@ -54,7 +54,7 @@ export default function AdminPanel({ password, onLogout }) {
         out[table] = raw.map(row => excelRowToDb(table, row, pairs));
       }
       if (Object.keys(out).length === 0) {
-        throw new Error('File không có sheet hợp lệ (stocks / stores / PIC / qlkv / gr_records / Tổng hợp PO).');
+        throw new Error('File không có sheet hợp lệ (stocks / stores / PIC / qlkv / gr_records / Tổng hợp PO / abnormal_stocks).');
       }
       setParsed(out);
     } catch (err) {

@@ -1,18 +1,22 @@
 import styles from './ConfirmList.module.css';
 import { StockCard } from './StockList';
 import { GrCard } from './GrList';
+import { AbnormalCard } from './AbnormalList';
 
 const isStockConfirmed = s => s.counted_stock !== '' && s.counted_stock !== null && s.counted_stock !== undefined;
 const isGrConfirmed = r => r.time_stamp !== null && r.time_stamp !== '' && r.time_stamp !== undefined;
+const isAbnormalConfirmed = r => r.counted_stock !== '' && r.counted_stock !== null && r.counted_stock !== undefined;
 
-export default function ConfirmList({ stocks, grRecords, onStockClick, onGrClick }) {
+export default function ConfirmList({ stocks, grRecords, abnormalRecords = [], onStockClick, onGrClick, onAbnormalClick }) {
   const stockPending = stocks.filter(s => !isStockConfirmed(s));
   const stockConfirmed = stocks.filter(isStockConfirmed);
   const grPending = grRecords.filter(r => !isGrConfirmed(r));
   const grConfirmed = grRecords.filter(isGrConfirmed);
+  const abnormalPending = abnormalRecords.filter(r => !isAbnormalConfirmed(r));
+  const abnormalConfirmed = abnormalRecords.filter(isAbnormalConfirmed);
 
-  const pendingCount = stockPending.length + grPending.length;
-  const confirmedCount = stockConfirmed.length + grConfirmed.length;
+  const pendingCount = stockPending.length + grPending.length + abnormalPending.length;
+  const confirmedCount = stockConfirmed.length + grConfirmed.length + abnormalConfirmed.length;
 
   return (
     <div className={styles.wrapper}>
@@ -35,6 +39,9 @@ export default function ConfirmList({ stocks, grRecords, onStockClick, onGrClick
             {grPending.map(record => (
               <GrCard key={`g-${record.po_number}`} record={record} onClick={() => onGrClick(record)} />
             ))}
+            {abnormalPending.map(record => (
+              <AbnormalCard key={`a-${record.article}`} record={record} onClick={() => onAbnormalClick(record)} />
+            ))}
           </div>
         </div>
       )}
@@ -48,6 +55,9 @@ export default function ConfirmList({ stocks, grRecords, onStockClick, onGrClick
             ))}
             {grConfirmed.map(record => (
               <GrCard key={`g-${record.po_number}`} record={record} confirmed />
+            ))}
+            {abnormalConfirmed.map(record => (
+              <AbnormalCard key={`a-${record.article}`} record={record} confirmed />
             ))}
           </div>
         </div>

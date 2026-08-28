@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { batchSavePicComment } from '../api';
 import styles from './PicDashboard.module.css';
 
-export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], loading, error, onRefresh, onLogout, onSwitchProgress, onSwitchGr }) {
+export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], loading, error, onRefresh, onLogout, onSwitchProgress, onSwitchGr, onSwitchAbnormal }) {
   const [selectedKey, setSelectedKey] = useState(null);
   const [selectedStore, setSelectedStore] = useState(null);
   const [detailTab, setDetailTab] = useState('stock'); // 'stock' | 'gr'
@@ -264,6 +264,9 @@ export default function PicDashboard({ pic, stocks, setStocks, grRecords = [], l
             )}
             {onSwitchGr && (
               <button className={styles.progressBtn} onClick={onSwitchGr}>Nhập kho</button>
+            )}
+            {onSwitchAbnormal && (
+              <button className={styles.progressBtn} onClick={onSwitchAbnormal}>Tồn bất thường</button>
             )}
             {onSwitchProgress && (
               <button className={styles.progressBtn} onClick={onSwitchProgress}>Tổng quan</button>

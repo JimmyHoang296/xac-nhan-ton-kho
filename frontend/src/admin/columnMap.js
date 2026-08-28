@@ -78,6 +78,27 @@ export const TABLES = {
     ['name', 'name'],
     ['role', 'role'],
   ],
+  abnormal_stocks: [
+    ['store', 'store'],
+    ['store_name', 'store_name'],
+    ['article', 'article'],
+    ['article_name', 'article_name'],
+    ['stock', 'stock'],
+    ['reason', 'reason'],
+    ['uploaded_by', 'uploaded_by'],
+    ['uploaded_at', 'uploaded_at'],
+    ['current_stock', 'current_stock'],
+    ['counted_stock', 'counted_stock'],
+    ['note', 'note'],
+    ['lat', 'lat'],
+    ['long', 'long'],
+    ['stock_check', 'stock_check'],
+    ['time_stamp', 'time_stamp'],
+    ['location_check', 'location_check'],
+    ['image', 'image'],
+    ['pic_comment', 'pic_comment'],
+    ['pic_status', 'pic_status'],
+  ],
 };
 
 // Tên sheet trong Excel → tên bảng DB
@@ -88,6 +109,7 @@ export const SHEET_TO_TABLE = {
   qlkv: 'qlkv',
   gr_records: 'gr_records',
   'tổng hợp po': 'gr_records',  // sheet gốc từ file báo cáo
+  abnormal_stocks: 'abnormal_stocks',
 };
 
 // Đổi 1 dòng từ DB-keyed → Excel-header-keyed (export)
