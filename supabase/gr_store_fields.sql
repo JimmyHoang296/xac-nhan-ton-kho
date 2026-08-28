@@ -4,6 +4,9 @@
 -- p_pic: username đăng nhập (bảng pic.pic). gr_records.pic lưu TÊN hiển thị của PIC, không
 -- phải username, nên cần tra pic.name (tên hiển thị ứng với username) rồi mới khớp với
 -- gr_records.pic. Nếu p_pic không khớp username nào thì fallback khớp trực tiếp như cũ.
+-- So khớp qua NORMALIZE(..., NFC): tên tiếng Việt có thể lưu Unicode dạng dựng sẵn (NFC) hoặc
+-- tổ hợp (NFD) tùy nguồn nhập — nhìn giống hệt nhau nhưng so khớp byte-for-byte (kể cả sau
+-- BTRIM) sẽ không khớp. Cùng lỗi/cách sửa như get_pic_stocks trong schema.sql.
 CREATE OR REPLACE FUNCTION get_pic_gr(p_pic text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -38,7 +41,7 @@ BEGIN
       ))
       FROM gr_records g
       LEFT JOIN stores st ON st.store::text = g.site::text
-      WHERE BTRIM(g.pic) = BTRIM(COALESCE(NULLIF(v_name, ''), p_pic))
+      WHERE NORMALIZE(BTRIM(g.pic), NFC) = NORMALIZE(BTRIM(COALESCE(NULLIF(v_name, ''), p_pic)), NFC)
     ), '[]'::jsonb)
   );
 END;

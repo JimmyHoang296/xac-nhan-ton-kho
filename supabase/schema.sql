@@ -166,6 +166,10 @@ $$;
 -- username, nên cần tra pic.name (tên hiển thị ứng với username) rồi mới khớp với stores.kstt.
 -- Nếu p_pic không khớp username nào (vd: admin drill-down truyền thẳng tên kstt) thì fallback
 -- khớp trực tiếp p_pic với stores.kstt như cũ.
+-- So khớp qua normalize(..., nfc): tên tiếng Việt nhập từ Excel/nguồn khác nhau có thể lưu
+-- Unicode dạng dựng sẵn (NFC, vd 'ù' = U+00F9) hoặc tổ hợp (NFD, vd 'ù' = 'u'+U+0300) — nhìn
+-- giống hệt nhau nhưng so sánh byte-for-byte (kể cả sau btrim) sẽ không khớp. Từng gây lỗi PIC
+-- đăng nhập được nhưng dashboard trống dù đã gán đúng CH (vd PIC "anhbt2" / kstt "Bùi Tuấn Anh").
 create or replace function get_pic_stocks(p_pic text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -190,7 +194,7 @@ begin
       ))
       from stores st
       join stocks s on s.store::text = st.store::text
-      where btrim(st.kstt) = btrim(coalesce(nullif(v_name, ''), p_pic))
+      where normalize(btrim(st.kstt), nfc) = normalize(btrim(coalesce(nullif(v_name, ''), p_pic)), nfc)
     ), '[]'::jsonb)
   );
 end;
